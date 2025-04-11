@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from django.db import transaction
 from core.models import LoggerService
@@ -8,6 +8,7 @@ from .serializers import BrandSerializer, ProductCategorySerializer, ProductSeri
 class BrandViewSet(viewsets.ModelViewSet):
     queryset = Brand.objects.filter(active=True)
     serializer_class = BrandSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -74,6 +75,7 @@ class BrandViewSet(viewsets.ModelViewSet):
 class ProductCategoryViewSet(viewsets.ModelViewSet):
     queryset = ProductCategory.objects.filter(active=True)
     serializer_class = ProductCategorySerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -140,6 +142,7 @@ class ProductCategoryViewSet(viewsets.ModelViewSet):
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.filter(active=True)
     serializer_class = ProductSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -206,6 +209,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 class InventoryViewSet(viewsets.ModelViewSet):
     queryset = Inventory.objects.all()
     serializer_class = InventorySerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -271,6 +275,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
 class WarrantyViewSet(viewsets.ModelViewSet):
     queryset = Warranty.objects.all()
     serializer_class = WarrantySerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():

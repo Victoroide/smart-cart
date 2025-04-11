@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from django.db import transaction
 from core.models import LoggerService
@@ -8,6 +8,7 @@ from .serializers import ChatbotSessionSerializer, ChatbotMessageSerializer
 class ChatbotSessionViewSet(viewsets.ModelViewSet):
     queryset = ChatbotSession.objects.filter(active=True)
     serializer_class = ChatbotSessionSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -74,6 +75,7 @@ class ChatbotSessionViewSet(viewsets.ModelViewSet):
 class ChatbotMessageViewSet(viewsets.ModelViewSet):
     queryset = ChatbotMessage.objects.all()
     serializer_class = ChatbotMessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():

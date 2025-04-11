@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from .models import LoggerService
 from .serializers import LoggerServiceSerializer
@@ -6,6 +6,7 @@ from .serializers import LoggerServiceSerializer
 class LoggerServiceViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = LoggerService.objects.all()
     serializer_class = LoggerServiceSerializer
+    permission_classes = [permissions.IsAdminUser]
 
     def list(self, request, *args, **kwargs):
         try:

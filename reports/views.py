@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, permissions
 from django.db import transaction
 from django.http import HttpResponse
 from datetime import datetime
@@ -14,6 +14,8 @@ from orders.models import Order, OrderItem
 from products.models import Product
 
 class ReportListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
         try:
             reports = Report.objects.all().order_by('-created_at')
@@ -29,6 +31,8 @@ class ReportListView(APIView):
             raise e
 
 class ReportCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     def post(self, request):
         with transaction.atomic():
             try:
@@ -88,6 +92,8 @@ class ReportCreateView(APIView):
         return result
 
 class ReportPDFView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request, report_id):
         try:
             report_obj = Report.objects.filter(id=report_id).first()
@@ -113,6 +119,8 @@ class ReportPDFView(APIView):
             raise e
 
 class ReportExcelView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request, report_id):
         try:
             report_obj = Report.objects.filter(id=report_id).first()

@@ -10,3 +10,4 @@ dotenv
 boto3
 botocore
 drf-yasg
+whitenoise

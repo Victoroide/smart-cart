@@ -1,4 +1,6 @@
 from rest_framework import viewsets, status, permissions
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework.response import Response
 from django.db import transaction
 from django.contrib.auth import get_user_model
@@ -126,3 +128,16 @@ class UserViewSet(viewsets.ModelViewSet):
                     description='Error on delete user: ' + str(e)
                 )
                 raise e
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['email'] = user.email
+        token['role'] = user.role
+        token['first_name'] = user.first_name
+        token['last_name'] = user.last_name
+        return token
+
+class CustomLoginView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer

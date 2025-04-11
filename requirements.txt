@@ -10,4 +10,4 @@ dotenv
 boto3
 botocore
 drf-yasg
-whitenoise
+python-decouple==3.8

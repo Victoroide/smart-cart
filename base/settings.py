@@ -84,7 +84,7 @@ USE_TZ = True
 
 USE_S3 = config('USE_S3', default='False') == 'True'
 
-# STATIC
+# STATIC FILES
 if USE_S3 and not DEBUG:
     AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
@@ -94,12 +94,15 @@ if USE_S3 and not DEBUG:
 
     STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
     STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    
+    STATIC_ROOT = BASE_DIR / 'staticfiles_temp'
+
 else:
     STATIC_URL = '/static/'
     STATIC_ROOT = BASE_DIR / 'staticfiles'
     STATICFILES_DIRS = [BASE_DIR / 'static']
 
-# MEDIA (siempre en S3)
+# MEDIA FILES
 AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
 AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')

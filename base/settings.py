@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-from decouple import Config, RepositoryEnv
 import os
 from urllib.parse import urlparse
 
@@ -19,7 +18,16 @@ from urllib.parse import urlparse
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 DOTENV_FILE = os.environ.get("DOTENV_FILE", ".env")
-env_config = Config(RepositoryEnv(BASE_DIR / DOTENV_FILE))
+DOTENV_PATH = Path(__file__).resolve().parent.parent / DOTENV_FILE
+
+if DOTENV_PATH.exists():
+    from decouple import Config, RepositoryEnv
+    env_config = Config(RepositoryEnv(DOTENV_PATH))
+else:
+    class FallbackConfig:
+        def get(self, var, default=None):
+            return os.environ.get(var, default)
+    env_config = FallbackConfig()
 
 
 # Quick-start development settings - unsuitable for production

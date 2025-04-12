@@ -9,6 +9,27 @@ SECRET_KEY = config("SECRET_KEY", default="django-insecure-clec8vo#+c@mu&hjoo6lg
 DEBUG = config("DEBUG", default="True") == "True"
 ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', 'localhost:4200']
 
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost",
+    "http://localhost:4200",
+    "http://localhost:3000",
+    BACKEND_URL := config("BACKEND_URL", default="http://localhost:8000"),
+]
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -17,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'corsheaders',
     'core',
     'authentication',
     'products',
@@ -30,6 +52,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',

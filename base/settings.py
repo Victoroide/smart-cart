@@ -28,6 +28,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:4200",
     "http://localhost:3000",
     BACKEND_URL := config("BACKEND_URL", default="http://localhost:8000"),
+    FRONTEND_URL := config("FRONTEND_URL", default="http://localhost:4200"),
 ]
 
 INSTALLED_APPS = [

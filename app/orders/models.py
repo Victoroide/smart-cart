@@ -1,7 +1,7 @@
 from django.db import models
 from core.models import TimestampedModel
-from authentication.models import User
-from products.models import Product
+from app.authentication.models import User
+from app.products.models import Product
 
 class Order(TimestampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

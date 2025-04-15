@@ -8,13 +8,16 @@ from io import BytesIO, StringIO
 import csv
 from reportlab.pdfgen import canvas
 from core.models import LoggerService
+from core.pagination import CustomPagination
+
 from .models import Report
 from .serializers import ReportSerializer
-from orders.models import Order, OrderItem
-from products.models import Product
+from app.orders.models import Order, OrderItem
+from app.products.models import Product
 
 class ReportListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomPagination
 
     def get(self, request):
         try:

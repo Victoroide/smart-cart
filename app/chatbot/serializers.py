@@ -12,6 +12,7 @@ class ChatbotSessionSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 class ChatbotMessageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -24,3 +25,4 @@ class ChatbotMessageSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

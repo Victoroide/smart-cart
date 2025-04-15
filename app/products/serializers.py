@@ -11,6 +11,7 @@ class BrandSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 class ProductCategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -22,12 +23,16 @@ class ProductCategorySerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 class ProductSerializer(serializers.ModelSerializer):
+    image_url = serializers.FileField(required=False, allow_null=True, use_url=True)
+    
     class Meta:
         model = Product
         fields = [
             'id',
+            'uuid',
             'brand',
             'category',
             'name',
@@ -40,6 +45,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+        read_only_fields = ['id', 'uuid', 'created_at', 'updated_at', 'price_bs']
 
 class InventorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -50,6 +56,7 @@ class InventorySerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 class WarrantySerializer(serializers.ModelSerializer):
     class Meta:
@@ -62,3 +69,4 @@ class WarrantySerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

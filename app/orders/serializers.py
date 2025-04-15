@@ -13,6 +13,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
@@ -27,6 +28,7 @@ class PaymentSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 class DeliverySerializer(serializers.ModelSerializer):
     class Meta:
@@ -41,6 +43,7 @@ class DeliverySerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
@@ -63,3 +66,4 @@ class OrderSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

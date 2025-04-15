@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from core.models import LoggerService
+from core.pagination import CustomPagination
+
 from .serializers import UserSerializer
 
 User = get_user_model()
@@ -18,6 +20,7 @@ class IsAdminOrOwner(permissions.BasePermission):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.filter(active=True)
     serializer_class = UserSerializer
+    pagination_class = CustomPagination
 
     def get_permissions(self):
         if self.action == 'create':

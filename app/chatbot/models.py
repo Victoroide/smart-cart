@@ -1,6 +1,6 @@
 from django.db import models
 from core.models import TimestampedModel
-from authentication.models import User
+from app.authentication.models import User
 
 class ChatbotSession(TimestampedModel):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)

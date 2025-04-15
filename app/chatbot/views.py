@@ -2,6 +2,8 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from django.db import transaction
 from core.models import LoggerService
+from core.pagination import CustomPagination
+
 from .models import ChatbotSession, ChatbotMessage
 from .serializers import ChatbotSessionSerializer, ChatbotMessageSerializer
 
@@ -9,6 +11,7 @@ class ChatbotSessionViewSet(viewsets.ModelViewSet):
     queryset = ChatbotSession.objects.filter(active=True)
     serializer_class = ChatbotSessionSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomPagination
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -76,6 +79,7 @@ class ChatbotMessageViewSet(viewsets.ModelViewSet):
     queryset = ChatbotMessage.objects.all()
     serializer_class = ChatbotMessageSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomPagination
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():

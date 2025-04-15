@@ -2,6 +2,7 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from django.db import transaction
 from core.models import LoggerService
+from core.pagination import CustomPagination
 from .models import Order, OrderItem, Payment, Delivery
 from .serializers import OrderSerializer, OrderItemSerializer, PaymentSerializer, DeliverySerializer
 
@@ -9,6 +10,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.filter(active=True)
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomPagination
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -76,6 +78,7 @@ class OrderItemViewSet(viewsets.ModelViewSet):
     queryset = OrderItem.objects.all()
     serializer_class = OrderItemSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomPagination
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -142,6 +145,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomPagination
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -208,6 +212,7 @@ class DeliveryViewSet(viewsets.ModelViewSet):
     queryset = Delivery.objects.all()
     serializer_class = DeliverySerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomPagination
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():

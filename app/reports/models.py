@@ -1,6 +1,6 @@
 from django.db import models
 from core.models import TimestampedModel
-from authentication.models import User
+from app.authentication.models import User
 
 class Report(TimestampedModel):
     REPORT_TYPES = (

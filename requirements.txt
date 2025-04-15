@@ -11,3 +11,6 @@ boto3
 botocore
 drf-yasg
 python-decouple==3.8
+pinecone
+openai
+tiktoken

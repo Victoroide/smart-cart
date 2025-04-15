@@ -41,11 +41,11 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'core',
-    'authentication',
-    'products',
-    'orders',
-    'chatbot',
-    'reports',
+    'app.authentication',
+    'app.products',
+    'app.orders',
+    'app.chatbot',
+    'app.reports',
     'drf_yasg',
     'storages'
 ]
@@ -148,5 +148,25 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
-    ]
+    ],
+    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
+    'DEFAULT_PAGINATION_CLASS': 'core.pagination.CustomPagination',
+    'PAGE_SIZE': 20,
 }
+
+SWAGGER_SETTINGS = {
+    'USE_SESSION_AUTH': True,
+    'VALIDATOR_URL': None,
+}
+
+PINECONE_INDEX_NAME = config('PINECONE_INDEX_NAME')
+PINECONE_API_KEY = config('PINECONE_API_KEY')
+
+OPENAI_AZURE_API_KEY = config('OPENAI_AZURE_API_KEY')
+OPENAI_AZURE_API_BASE = config('OPENAI_AZURE_API_BASE')
+OPENAI_AZURE_API_VERSION = config('OPENAI_AZURE_API_VERSION')
+OPENAI_BASE_MODEL = config('OPENAI_BASE_MODEL')
+OPENAI_THINKING_MODEL = config('OPENAI_THINKING_MODEL')
+OPENAI_EMBEDDING_MODEL = config('OPENAI_EMBEDDING_MODEL')
+
+USD_TO_BS_RATE = 13

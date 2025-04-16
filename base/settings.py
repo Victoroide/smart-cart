@@ -7,7 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config("SECRET_KEY", default="django-insecure-clec8vo#+c@mu&hjoo6lgr6_b8z4=(3f#*vo0j#&kbncfn)=()")
 DEBUG = config("DEBUG", default="True") == "True"
-ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', 'localhost:4200']
+ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', 'localhost:4200', "localhost:5500"]
 
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
@@ -27,6 +27,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost",
     "http://localhost:4200",
     "http://localhost:3000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
     BACKEND_URL := config("BACKEND_URL", default="http://localhost:8000"),
     FRONTEND_URL := config("FRONTEND_URL", default="http://localhost:4200"),
 ]
@@ -170,3 +172,13 @@ OPENAI_THINKING_MODEL = config('OPENAI_THINKING_MODEL')
 OPENAI_EMBEDDING_MODEL = config('OPENAI_EMBEDDING_MODEL')
 
 USD_TO_BS_RATE = 13
+STRIPE_API_KEY = config('STRIPE_API_KEY')
+STRIPE_PUBLIC_KEY = config('STRIPE_PUBLIC_KEY')
+STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET')
+
+PAYPAL_CLIENT_ID = config('PAYPAL_CLIENT_ID')
+PAYPAL_CLIENT_SECRET = config('PAYPAL_CLIENT_SECRET')
+PAYPAL_SANDBOX = config('PAYPAL_SANDBOX', default='True') == 'True'
+PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com" if PAYPAL_SANDBOX else "https://api-m.paypal.com"
+
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:4200')

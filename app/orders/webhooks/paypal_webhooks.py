@@ -1,7 +1,7 @@
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from app.orders.models import Payment, Order
+from app.orders.models import Payment
 from core.models import LoggerService
 import json
 
@@ -17,23 +17,31 @@ def paypal_webhook(request):
         
         if event_type == 'CHECKOUT.ORDER.APPROVED' or event_type == 'PAYMENT.CAPTURE.COMPLETED':
             resource = payload_data.get('resource', {})
-            order_id = resource.get('id')
+            custom_id = resource.get('custom_id')
+            transaction_id = resource.get('id')
             
-            if order_id:
-                payment = Payment.objects.filter(transaction_id=order_id).first()
+            if custom_id and transaction_id:
+                payment = Payment.objects.select_related('order').filter(
+                    order__id=custom_id, 
+                    transaction_id=transaction_id
+                ).first()
                 
-                if payment:
+                if not payment:
+                    payment = Payment.objects.select_related('order').filter(
+                        order__id=custom_id
+                    ).first()
+                    
+                    if payment:
+                        payment.transaction_id = transaction_id
+                        
+                if payment and payment.payment_status != 'completed':
                     payment.payment_status = 'completed'
                     payment.save()
-                    
-                    order = payment.order
-                    order.status = 'paid'
-                    order.save()
                     
                     LoggerService.objects.create(
                         action='WEBHOOK',
                         table_name='Payment',
-                        description=f'Payment for order {order.id} completed via PayPal webhook'
+                        description=f'Payment for order {payment.order.id} completed via PayPal webhook'
                     )
         
         return JsonResponse({'status': 'success'})

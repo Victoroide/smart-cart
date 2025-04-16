@@ -23,20 +23,17 @@ def stripe_webhook(request):
         
         if event['type'] == 'checkout.session.completed':
             session_id = event_data['id']
-            payment = Payment.objects.filter(transaction_id=session_id).first()
             
-            if payment:
+            payment = Payment.objects.select_related('order').filter(transaction_id=session_id).first()
+            
+            if payment and payment.payment_status != 'completed':
                 payment.payment_status = 'completed'
                 payment.save()
-                
-                order = payment.order
-                order.status = 'paid'
-                order.save()
                 
                 LoggerService.objects.create(
                     action='WEBHOOK',
                     table_name='Payment',
-                    description=f'Payment for order {order.id} completed via Stripe webhook'
+                    description=f'Payment for order {payment.order.id} completed via Stripe webhook'
                 )
         
         return HttpResponse(status=200)

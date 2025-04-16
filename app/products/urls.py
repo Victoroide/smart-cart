@@ -6,7 +6,7 @@ router = DefaultRouter()
 router.register(r'brands', BrandViewSet, basename='brands')
 router.register(r'categories', ProductCategoryViewSet, basename='categories')
 router.register(r'inventory', InventoryViewSet, basename='inventory')
-router.register(r'warranty', WarrantyViewSet, basename='warranty')
+router.register(r'warranties', WarrantyViewSet, basename='warranties')
 router.register(r'', ProductViewSet, basename='products')
 
 urlpatterns = [

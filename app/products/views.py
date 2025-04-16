@@ -152,7 +152,7 @@ class ProductCategoryViewSet(viewsets.ModelViewSet):
                 raise e
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.filter(active=True)
+    queryset = Product.objects.filter(active=True).order_by('-created_at')
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     parser_classes = [
@@ -166,28 +166,56 @@ class ProductViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'description']
 
     @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'name': openapi.Schema(type=openapi.TYPE_STRING, description='Product name'),
+                'brand': openapi.Schema(type=openapi.TYPE_INTEGER, description='Brand ID'),
+                'category': openapi.Schema(type=openapi.TYPE_INTEGER, description='Category ID'),
+                'warranty': openapi.Schema(type=openapi.TYPE_INTEGER, description='Warranty ID'),
+                'stock': openapi.Schema(type=openapi.TYPE_INTEGER, description='Available inventory quantity'),
+                'price_usd': openapi.Schema(type=openapi.TYPE_NUMBER, description='Price in USD'),
+                'description': openapi.Schema(type=openapi.TYPE_STRING, description='Product description'),
+                'active': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='Product status'),
+                'technical_specifications': openapi.Schema(type=openapi.TYPE_STRING, description='Technical specifications'),
+            },
+            example={
+                "name": "Smartphone XYZ",
+                "brand": 1,
+                "category": 2,
+                "warranty": 3,
+                "stock": 100,
+                "price_usd": 699.99,
+                "description": "A high-end smartphone with excellent features.",
+                "active": True,
+                "technical_specifications": "6.5-inch display, 128GB storage, 5G support"
+            }
+        ),
         operation_description="Create a new product with optional image upload. Use multipart/form-data to upload files.",
         consumes=['multipart/form-data', 'application/json']
     )
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
             try:
-                if 'image_url' in request.FILES:
-                    request.data['image_url'] = request.FILES['image_url']
+                serializer = self.get_serializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
                 
-                response = super().create(request, *args, **kwargs)
+                image_file = request.FILES.get('image_url')
+                
+                instance = serializer.save()
+                
+                if image_file:
+                    instance.image_url = image_file
+                    instance.save(update_fields=['image_url'])
                 
                 try:
-                    product = Product.objects.get(id=response.data.get('id'))
-                    
-                    if not product.uuid:
+                    if not instance.uuid:
                         import uuid
-                        product.uuid = uuid.uuid4()
-                        product.save(update_fields=['uuid'])
+                        instance.uuid = uuid.uuid4()
+                        instance.save(update_fields=['uuid'])
                     
                     pinecone_service = PineconeService()
-                    pinecone_service.upsert_product(product)
-
+                    pinecone_service.upsert_product(instance)
                 except Exception as e:
                     import traceback
                     error_details = traceback.format_exc()
@@ -195,16 +223,19 @@ class ProductViewSet(viewsets.ModelViewSet):
                         user=request.user if request.user.is_authenticated else None,
                         action='ERROR',
                         table_name='Product',
-                        description=f'Error syncing product {response.data.get("id")} with Pinecone: {str(e)}\n{error_details}'
+                        description=f'Error syncing product {instance.id} with Pinecone: {str(e)}\n{error_details}'
                     )
                 
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,
                     action='CREATE',
                     table_name='Product',
-                    description='Created product ' + str(response.data.get('id'))
+                    description='Created product ' + str(instance.id)
                 )
-                return response
+                
+                serializer = self.get_serializer(instance)
+                headers = self.get_success_headers(serializer.data)
+                return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
             except Exception as e:
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,
@@ -215,36 +246,62 @@ class ProductViewSet(viewsets.ModelViewSet):
                 raise e
                 
     @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'name': openapi.Schema(type=openapi.TYPE_STRING, description='Product name'),
+                'brand_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='Brand ID'),
+                'category_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='Category ID'),
+                'warranty_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='Warranty ID'),
+                'stock': openapi.Schema(type=openapi.TYPE_INTEGER, description='Available inventory quantity'),
+                'price_usd': openapi.Schema(type=openapi.TYPE_NUMBER, description='Price in USD'),
+                'description': openapi.Schema(type=openapi.TYPE_STRING, description='Product description'),
+                'active': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='Product status'),
+                'technical_specifications': openapi.Schema(type=openapi.TYPE_STRING, description='Technical specifications'),
+            },
+            example={
+                "name": "Updated Smartphone XYZ",
+                "price_usd": 899.99
+            }
+        ),
         operation_description="Update a product with optional image upload. Use multipart/form-data to upload files.",
         consumes=['multipart/form-data', 'application/json']
     )
     def partial_update(self, request, *args, **kwargs):
         with transaction.atomic():
             try:
-                if 'image_url' in request.FILES:
-                    request.data['image_url'] = request.FILES['image_url']
+                instance = self.get_object()
+                serializer = self.get_serializer(instance, data=request.data, partial=True)
+                serializer.is_valid(raise_exception=True)
                 
-                response = super().partial_update(request, *args, **kwargs)
+                image_file = request.FILES.get('image_url')
+                
+                self.perform_update(serializer)
+                
+                if image_file:
+                    instance.image_url = image_file
+                    instance.save(update_fields=['image_url'])
                 
                 try:
-                    product = self.get_object()
                     pinecone_service = PineconeService()
-                    pinecone_service.upsert_product(product)
+                    pinecone_service.upsert_product(instance)
                 except Exception as e:
                     LoggerService.objects.create(
                         user=request.user if request.user.is_authenticated else None,
                         action='ERROR',
                         table_name='Product',
-                        description=f'Error syncing updated product {product.id} to Pinecone: {str(e)}'
+                        description=f'Error syncing updated product {instance.id} to Pinecone: {str(e)}'
                     )
                 
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,
                     action='PATCH',
                     table_name='Product',
-                    description='Partially updated product ' + str(response.data.get('id'))
+                    description='Partially updated product ' + str(instance.id)
                 )
-                return response
+                
+                serializer = self.get_serializer(instance)
+                return Response(serializer.data)
             except Exception as e:
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,
@@ -422,12 +479,11 @@ class InventoryViewSet(viewsets.ModelViewSet):
                 raise e
 
 class WarrantyViewSet(viewsets.ModelViewSet):
-    queryset = Warranty.objects.all()
+    queryset = Warranty.objects.filter(active=True)
     serializer_class = WarrantySerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     pagination_class = CustomPagination
-    parser_classes = [JSONParser, MultiPartParser, FormParser]
-
+    
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
             try:
@@ -472,12 +528,13 @@ class WarrantyViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             try:
                 instance = self.get_object()
-                instance.delete()
+                instance.active = False
+                instance.save()
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,
                     action='DELETE',
                     table_name='Warranty',
-                    description='Deleted warranty ' + str(instance.id)
+                    description='Soft-deleted warranty ' + str(instance.id)
                 )
                 return Response(status=status.HTTP_204_NO_CONTENT)
             except Exception as e:

@@ -14,5 +14,7 @@ RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
 COPY . .
+RUN chmod +x collectstatic.sh
+RUN chmod +x entrypoint.sh
 
-CMD ["gunicorn", "base.wsgi:application", "--bind", "0.0.0.0:8000"]
+ENTRYPOINT ["/app/entrypoint.sh"]

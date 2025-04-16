@@ -199,20 +199,13 @@ class ProductViewSet(viewsets.ModelViewSet):
             try:
                 serializer = self.get_serializer(data=request.data)
                 serializer.is_valid(raise_exception=True)
-                
-                image_file = request.FILES.get('image_url')
-                
                 instance = serializer.save()
-                
-                if image_file:
-                    instance.image_url = image_file
-                    instance.save(update_fields=['image_url'])
                 
                 try:
                     if not instance.uuid:
                         import uuid
                         instance.uuid = uuid.uuid4()
-                        instance.save(update_fields=['uuid'])
+                        instance.save()
                     
                     pinecone_service = PineconeService()
                     pinecone_service.upsert_product(instance)

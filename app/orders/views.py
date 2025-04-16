@@ -14,17 +14,29 @@ class OrderViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPagination
 
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return OrderCreateSerializer
+        return OrderSerializer
+
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
             try:
-                response = super().create(request, *args, **kwargs)
+                serializer = self.get_serializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+                order = serializer.save()
+                
+                response_serializer = OrderSerializer(order, context=self.get_serializer_context())
+                response_data = response_serializer.data
+                
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,
                     action='CREATE',
                     table_name='Order',
-                    description='Created order ' + str(response.data.get('id'))
+                    description='Created order ' + str(order.id)
                 )
-                return response
+                
+                return Response(response_data, status=status.HTTP_201_CREATED)
             except Exception as e:
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,

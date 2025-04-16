@@ -345,6 +345,34 @@ class ProductViewSet(viewsets.ModelViewSet):
                 )
                 raise e
 
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter(
+                'query', 
+                openapi.IN_QUERY, 
+                description="Search term to find similar products", 
+                type=openapi.TYPE_STRING,
+                required=True
+            ),
+            openapi.Parameter(
+                'count', 
+                openapi.IN_QUERY, 
+                description="Number of similar products to return", 
+                type=openapi.TYPE_INTEGER,
+                default=5
+            ),
+        ],
+        responses={
+            200: openapi.Response('List of similar products', ProductSerializer(many=True)),
+            400: openapi.Response('Bad Request', openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'error': openapi.Schema(type=openapi.TYPE_STRING)
+                }
+            ))
+        },
+        operation_description="Find products similar to the search query"
+    )
     @action(detail=False, methods=['get'])
     def similar(self, request):
         query = request.query_params.get('query', '')

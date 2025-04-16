@@ -2,12 +2,15 @@ from rest_framework import viewsets, status, permissions
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from core.models import LoggerService
 from core.pagination import CustomPagination
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 
-from .serializers import UserSerializer
+from .serializers import *
 
 User = get_user_model()
 
@@ -131,6 +134,55 @@ class UserViewSet(viewsets.ModelViewSet):
                     description='Error on delete user: ' + str(e)
                 )
                 raise e
+
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['old_password', 'new_password'],
+            properties={
+                'old_password': openapi.Schema(type=openapi.TYPE_STRING, description='Current password'),
+                'new_password': openapi.Schema(type=openapi.TYPE_STRING, description='New password to set')
+            },
+            example={
+                "old_password": "currentPassword123",
+                "new_password": "newSecurePassword456"
+            }
+        ),
+        operation_description="Change user password. Requires old password for verification."
+    )       
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated], url_path='change-password')
+    def change_password(self, request):
+        with transaction.atomic():
+            try:
+                user = request.user
+                serializer = ChangePasswordSerializer(data=request.data)
+                
+                if serializer.is_valid():
+                    if not user.check_password(serializer.validated_data['old_password']):
+                        return Response({"error": "Old password is incorrect"}, status=status.HTTP_403_FORBIDDEN)
+                    
+                    user.set_password(serializer.validated_data['new_password'])
+                    user.save()
+                    
+                    LoggerService.objects.create(
+                        user=user,
+                        action='PASSWORD_CHANGE',
+                        table_name='User',
+                        description=f'User {user.id} changed password'
+                    )
+                    
+                    return Response({"message": "Password changed successfully"}, status=status.HTTP_200_OK)
+                
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            except Exception as e:
+                LoggerService.objects.create(
+                    user=request.user,
+                    action='ERROR',
+                    table_name='User',
+                    description=f'Error changing password: {str(e)}'
+                )
+                return Response({"error": "An error occurred while changing the password"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod

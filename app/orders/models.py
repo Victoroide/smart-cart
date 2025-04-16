@@ -7,8 +7,6 @@ class Order(TimestampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=10)
-    status = models.CharField(max_length=20, default='pending')
-    payment_method = models.CharField(max_length=20, null=True, blank=True)
     active = models.BooleanField(default=True)
 
 class OrderItem(TimestampedModel):
@@ -18,11 +16,28 @@ class OrderItem(TimestampedModel):
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
 
 class Payment(TimestampedModel):
-    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='payment')
+    PAYMENT_STATUS = (
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded')
+    )
+    
+    PAYMENT_METHOD = (
+        ('stripe', 'Stripe'),
+        ('paypal', 'PayPal'),
+        ('bank_transfer', 'Bank Transfer'),
+        ('cash', 'Cash')
+    )
+    
+    order = models.OneToOneField('Order', on_delete=models.CASCADE, related_name='payment')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    method = models.CharField(max_length=20)
-    status = models.CharField(max_length=20, default='initiated')
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD)
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS, default='pending')
     transaction_id = models.CharField(max_length=255, null=True, blank=True)
+    payment_intent_id = models.CharField(max_length=255, null=True, blank=True)
+    payment_details = models.JSONField(null=True, blank=True)
 
 class Delivery(TimestampedModel):
     order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='delivery')

@@ -22,13 +22,23 @@ class PaymentSerializer(serializers.ModelSerializer):
             'id',
             'order',
             'amount',
-            'method',
-            'status',
+            'payment_method',
+            'payment_status',
             'transaction_id',
             'created_at',
             'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+class PaymentCreateSerializer(serializers.ModelSerializer):
+    payment_method = serializers.ChoiceField(choices=Payment.PAYMENT_METHOD)
+    
+    class Meta:
+        model = Payment
+        fields = [
+            'order',
+            'payment_method',
+        ]
 
 class DeliverySerializer(serializers.ModelSerializer):
     class Meta:
@@ -57,8 +67,6 @@ class OrderSerializer(serializers.ModelSerializer):
             'user',
             'total_amount',
             'currency',
-            'status',
-            'payment_method',
             'active',
             'items',
             'payment',

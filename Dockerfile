@@ -7,7 +7,7 @@ ENV PORT=8000
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y gcc libpq-dev \
+    && apt-get install -y gcc libpq-dev dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -18,6 +18,6 @@ COPY . .
 
 RUN mkdir -p /app/static /app/staticfiles /app/mediafiles
 
-RUN chmod +x entrypoint.sh
+RUN dos2unix entrypoint.sh && chmod +x entrypoint.sh
 
 ENTRYPOINT ["/app/entrypoint.sh"]

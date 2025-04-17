@@ -1,7 +1,11 @@
-set -a
-. .env
-set +a
+set -e
 
-¡python manage.py collectstatic --noinput
+mkdir -p /app/static
 
-exec gunicorn base.wsgi:application --bind 0.0.0.0:8000
+mkdir -p /app/staticfiles
+
+python manage.py collectstatic --noinput
+
+python manage.py migrate --noinput
+
+exec gunicorn base.wsgi:application --bind 0.0.0.0:$PORT

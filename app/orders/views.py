@@ -185,25 +185,91 @@ class OrderItemViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPagination
 
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return OrderItemCreateSerializer
+        return OrderItemSerializer
+
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
             try:
-                response = super().create(request, *args, **kwargs)
-                LoggerService.objects.create(
-                    user=request.user if request.user.is_authenticated else None,
-                    action='CREATE',
-                    table_name='OrderItem',
-                    description='Created order item ' + str(response.data.get('id'))
-                )
-                return response
+                order_id = request.data.get('order_id')
+                if not order_id:
+                    return Response(
+                        {"error": "order_id is required"}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                try:
+                    order = Order.objects.get(id=order_id)
+                    if order.user != request.user and not request.user.is_staff:
+                        return Response(
+                            {"error": "You don't have permission to add items to this order"}, 
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+                except Order.DoesNotExist:
+                    return Response(
+                        {"error": "Order not found"}, 
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                
+                product_id = request.data.get('product_id')
+                quantity = request.data.get('quantity', 1)
+                
+                try:
+                    product = Product.objects.get(id=product_id, active=True)
+                    
+                    unit_price = product.price_usd if order.currency == 'USD' else product.price_bs
+                    
+                    inventory = Inventory.objects.get(product=product)
+                    if inventory.stock < quantity:
+                        return Response(
+                            {"error": f"Insufficient inventory for {product.name}. Available: {inventory.stock}"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    
+                    order_item = OrderItem.objects.create(
+                        order=order,
+                        product=product,
+                        quantity=quantity,
+                        unit_price=unit_price
+                    )
+                    
+                    order.total_amount += unit_price * quantity
+                    order.save()
+                    
+                    LoggerService.objects.create(
+                        user=request.user,
+                        action='CREATE',
+                        table_name='OrderItem',
+                        description=f'Added item to cart: {product.name} (x{quantity})'
+                    )
+                    
+                    serializer = OrderItemSerializer(order_item)
+                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+                    
+                except Product.DoesNotExist:
+                    return Response(
+                        {"error": "Product not found or not active"},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                except Exception as e:
+                    return Response(
+                        {"error": str(e)},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                    
             except Exception as e:
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,
                     action='ERROR',
                     table_name='OrderItem',
-                    description='Error on create order item: ' + str(e)
+                    description='Error adding item to cart: ' + str(e)
                 )
-                raise e
+                return Response(
+                    {"error": str(e)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
     def partial_update(self, request, *args, **kwargs):
         with transaction.atomic():

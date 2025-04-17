@@ -18,6 +18,18 @@ class OrderViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return OrderCreateSerializer
         return OrderSerializer
+    
+    def get_queryset(self):
+        queryset = Order.objects.filter(active=True)
+        
+        if not self.request.user.is_staff:
+            queryset = queryset.filter(user=self.request.user)
+            
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+            
+        return queryset.order_by('-created_at')
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -250,8 +262,16 @@ class PaymentViewSet(viewsets.ModelViewSet):
         
         if not self.request.user.is_staff:
             queryset = queryset.filter(order__user=self.request.user)
+        
+        status_filter = self.request.query_params.get('payment_status', None)
+        if status_filter:
+            queryset = queryset.filter(payment_status=status_filter)
             
-        return queryset
+        method_filter = self.request.query_params.get('payment_method', None)
+        if method_filter:
+            queryset = queryset.filter(payment_method=method_filter)
+            
+        return queryset.order_by('-created_at')
     
     def create(self, request, *args, **kwargs):
         with transaction.atomic():

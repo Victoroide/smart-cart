@@ -132,7 +132,7 @@ if USE_S3:
     AWS_S3_FILE_OVERWRITE = False
     AWS_QUERYSTRING_AUTH = False
     
-    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
+    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/public/static/'
     STATICFILES_STORAGE = 'base.storage.StaticStorage'
     MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
 else:
@@ -149,7 +149,7 @@ AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='us-east-1')
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # MEDIA FILES
-MEDIA_URL = '/media/' if not USE_S3 else f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+MEDIA_URL = '/media/' if not USE_S3 else f'https://{AWS_S3_CUSTOM_DOMAIN}/public/media/'
 PUBLIC_MEDIA_LOCATION = 'public'
 PRIVATE_MEDIA_LOCATION = 'private'
 

@@ -2,7 +2,7 @@ from storages.backends.s3boto3 import S3Boto3Storage
 from base import settings
 
 class StaticStorage(S3Boto3Storage):
-    location = 'static'
+    location = 'public/static'
     file_overwrite = True
 
 class PublicMediaStorage(S3Boto3Storage):

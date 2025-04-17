@@ -9,7 +9,7 @@ SECRET_KEY = config("SECRET_KEY", default="django-insecure-clec8vo#+c@mu&hjoo6lg
 DEBUG = config("DEBUG", default="True") == "True"
 ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', 'localhost:4200', "localhost:5500"]
 
-CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     'accept',
@@ -23,14 +23,22 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 CORS_ALLOWED_ORIGINS = [
     "http://localhost",
     "http://localhost:4200",
     "http://localhost:3000",
     "http://localhost:5500",
     "http://127.0.0.1:5500",
-    BACKEND_URL := config("BACKEND_URL", default="http://localhost:8000"),
-    FRONTEND_URL := config("FRONTEND_URL", default="http://localhost:4200"),
+    config("BACKEND_URL", default="http://localhost:8000"),
+    config("FRONTEND_URL", default="http://localhost:4200"),
 ]
 
 INSTALLED_APPS = [

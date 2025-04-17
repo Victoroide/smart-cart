@@ -9,7 +9,7 @@ from .serializers import *
 from base import settings
 
 class OrderViewSet(viewsets.ModelViewSet):
-    queryset = Order.objects.filter(active=True)
+    queryset = Order.objects.filter(active=True).order_by('-created_at')
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPagination
@@ -82,6 +82,13 @@ class OrderViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             try:
                 instance = self.get_object()
+                
+                if hasattr(instance, 'payment') and instance.payment.payment_status == 'completed':
+                    return Response(
+                        {"error": "Cannot delete an order that has been paid"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                    
                 instance.active = False
                 instance.save()
                 LoggerService.objects.create(
@@ -180,7 +187,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
 
 class OrderItemViewSet(viewsets.ModelViewSet):
-    queryset = OrderItem.objects.all()
+    queryset = OrderItem.objects.all().order_by('-created_at')
     serializer_class = OrderItemSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPagination
@@ -274,7 +281,26 @@ class OrderItemViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         with transaction.atomic():
             try:
+                instance = self.get_object()
+                order = instance.order
+                
+                if hasattr(order, 'payment') and order.payment.payment_status == 'completed':
+                    return Response(
+                        {"error": "Cannot modify items in an order that has been paid"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                original_quantity = instance.quantity
+                
                 response = super().partial_update(request, *args, **kwargs)
+                
+                updated_instance = self.get_object()
+                if 'quantity' in request.data and updated_instance.quantity != original_quantity:
+                    quantity_difference = updated_instance.quantity - original_quantity
+                    amount_change = updated_instance.unit_price * quantity_difference
+                    order.total_amount += amount_change
+                    order.save()
+                
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,
                     action='PATCH',
@@ -295,20 +321,48 @@ class OrderItemViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             try:
                 instance = self.get_object()
+                order = instance.order
+                
+                if hasattr(order, 'payment') and order.payment.payment_status == 'completed':
+                    return Response(
+                        {"error": "Cannot remove items from an order that has been paid"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                amount_to_subtract = instance.unit_price * instance.quantity
+                
                 instance.delete()
+                
+                remaining_items = OrderItem.objects.filter(order=order).count()
+                
+                if remaining_items == 0:
+                    order.total_amount = 0
+                    order.save()
+                    LoggerService.objects.create(
+                        user=request.user,
+                        action='UPDATE',
+                        table_name='Order',
+                        description=f'Reset empty cart (order {order.id})'
+                    )
+                else:
+                    order.total_amount -= amount_to_subtract
+                    order.save()
+                
                 LoggerService.objects.create(
-                    user=request.user if request.user.is_authenticated else None,
+                    user=request.user,
                     action='DELETE',
                     table_name='OrderItem',
-                    description='Deleted order item ' + str(instance.id)
+                    description='Removed item from cart'
                 )
+                
                 return Response(status=status.HTTP_204_NO_CONTENT)
+                
             except Exception as e:
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,
                     action='ERROR',
                     table_name='OrderItem',
-                    description='Error on delete order item: ' + str(e)
+                    description='Error removing item from cart: ' + str(e)
                 )
                 raise e
 

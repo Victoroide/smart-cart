@@ -180,20 +180,7 @@ REST_FRAMEWORK = {
 
 SWAGGER_SETTINGS = {
     'USE_SESSION_AUTH': False,
-    'SECURITY_DEFINITIONS': {
-        'Bearer': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header'
-        }
-    },
     'VALIDATOR_URL': None,
-    'JSON_EDITOR': True,
-    'PERSIST_AUTH': True,
-    'REFETCH_SCHEMA_WITH_AUTH': True,
-    'REFETCH_SCHEMA_ON_LOGOUT': True,
-    'SWAGGER_UI_DIST': 'drf_yasg/swagger-ui-dist',
-    'SWAGGER_UI_FAVICON_HREF': STATIC_URL + 'drf_yasg/favicon-32x32.png',
 }
 PINECONE_INDEX_NAME = config('PINECONE_INDEX_NAME')
 PINECONE_API_KEY = config('PINECONE_API_KEY')

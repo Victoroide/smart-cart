@@ -197,38 +197,52 @@ class ProductViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
             try:
-                serializer = self.get_serializer(data=request.data)
+                data = request.data.copy()
+                image_file = None
+
+                if 'image_url' in request.FILES:
+                    image_file = request.FILES.get('image_url')
+                    if 'image_url' in data:
+                        del data['image_url']
+
+                serializer = self.get_serializer(data=data)
                 serializer.is_valid(raise_exception=True)
                 instance = serializer.save()
-                
+
+                if image_file:
+                    try:
+                        instance.image_url = image_file
+                        instance.save(update_fields=['image_url'])
+                    except Exception as img_error:
+                        LoggerService.objects.create(
+                            user=request.user if request.user.is_authenticated else None,
+                            action='ERROR',
+                            table_name='Product',
+                            description=f'Error saving image for product {instance.id}: {str(img_error)}'
+                        )
+
                 try:
-                    if not instance.uuid:
-                        import uuid
-                        instance.uuid = uuid.uuid4()
-                        instance.save()
-                    
                     pinecone_service = PineconeService()
                     pinecone_service.upsert_product(instance)
                 except Exception as e:
-                    import traceback
-                    error_details = traceback.format_exc()
                     LoggerService.objects.create(
                         user=request.user if request.user.is_authenticated else None,
                         action='ERROR',
                         table_name='Product',
-                        description=f'Error syncing product {instance.id} with Pinecone: {str(e)}\n{error_details}'
+                        description=f'Error syncing product {instance.id} with Pinecone: {str(e)}'
                     )
-                
+
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,
                     action='CREATE',
                     table_name='Product',
                     description='Created product ' + str(instance.id)
                 )
-                
+
                 serializer = self.get_serializer(instance)
                 headers = self.get_success_headers(serializer.data)
                 return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
             except Exception as e:
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,
@@ -264,16 +278,32 @@ class ProductViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             try:
                 instance = self.get_object()
-                serializer = self.get_serializer(instance, data=request.data, partial=True)
-                serializer.is_valid(raise_exception=True)
+                
+                original_image = instance.image_url
                 
                 image_file = request.FILES.get('image_url')
+                data = request.data.copy()
                 
+                if 'image_url' in data:
+                    del data['image_url']
+                    
+                serializer = self.get_serializer(instance, data=data, partial=True)
+                serializer.is_valid(raise_exception=True)
                 self.perform_update(serializer)
                 
                 if image_file:
-                    instance.image_url = image_file
-                    instance.save(update_fields=['image_url'])
+                    try:
+                        instance.image_url = image_file
+                        instance.save(update_fields=['image_url'])
+                    except Exception as img_error:
+                        instance.image_url = original_image
+                        instance.save(update_fields=['image_url'])
+                        LoggerService.objects.create(
+                            user=request.user if request.user.is_authenticated else None,
+                            action='ERROR',
+                            table_name='Product',
+                            description=f'Error saving image for product {instance.id}: {str(img_error)}'
+                        )
                 
                 try:
                     pinecone_service = PineconeService()
@@ -293,8 +323,8 @@ class ProductViewSet(viewsets.ModelViewSet):
                     description='Partially updated product ' + str(instance.id)
                 )
                 
-                serializer = self.get_serializer(instance)
-                return Response(serializer.data)
+                updated_serializer = self.get_serializer(instance)
+                return Response(updated_serializer.data)
             except Exception as e:
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,

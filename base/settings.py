@@ -133,10 +133,13 @@ if USE_S3:
     AWS_QUERYSTRING_AUTH = False
     
     STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
-    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    STATICFILES_STORAGE = 'base.storage.StaticStorage'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
 else:
     STATIC_URL = '/static/'
-    STATICFILES_DIRS = [] 
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
@@ -176,10 +179,22 @@ REST_FRAMEWORK = {
 }
 
 SWAGGER_SETTINGS = {
-    'USE_SESSION_AUTH': True,
+    'USE_SESSION_AUTH': False,
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header'
+        }
+    },
     'VALIDATOR_URL': None,
+    'JSON_EDITOR': True,
+    'PERSIST_AUTH': True,
+    'REFETCH_SCHEMA_WITH_AUTH': True,
+    'REFETCH_SCHEMA_ON_LOGOUT': True,
+    'SWAGGER_UI_DIST': 'drf_yasg/swagger-ui-dist',
+    'SWAGGER_UI_FAVICON_HREF': STATIC_URL + 'drf_yasg/favicon-32x32.png',
 }
-
 PINECONE_INDEX_NAME = config('PINECONE_INDEX_NAME')
 PINECONE_API_KEY = config('PINECONE_API_KEY')
 

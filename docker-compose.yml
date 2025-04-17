@@ -1,37 +1,15 @@
 version: '3.9'
 
 services:
-  db:
-    image: postgres:15
-    container_name: smartcart-db
-    environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-
   web:
     build: .
     container_name: smartcart-web
     command: gunicorn base.wsgi:application --bind 0.0.0.0:8000
-    
     env_file:
       - .env
-    
     volumes:
       - .:/app
     ports:
       - "8000:8000"
-    depends_on:
-      - db
     environment:
-      - DB_HOST=db
-      - DB_NAME=postgres
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-
-volumes:
-  postgres_data:
+      - PORT=8000

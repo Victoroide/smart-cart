@@ -20,4 +20,4 @@ RUN mkdir -p /app/static /app/staticfiles /app/mediafiles
 
 RUN dos2unix entrypoint.sh && chmod +x entrypoint.sh
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

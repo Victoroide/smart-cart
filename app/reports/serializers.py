@@ -9,6 +9,8 @@ class ReportSerializer(serializers.ModelSerializer):
             'user',
             'name',
             'report_type',
+            'language',
+            'format',
             'start_date',
             'end_date',
             'file_path',
@@ -21,3 +23,8 @@ class ReportSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+
+class ReportCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Report
+        fields = ['name', 'report_type', 'language', 'format', 'start_date', 'end_date']

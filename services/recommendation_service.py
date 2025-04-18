@@ -1,4 +1,6 @@
 from .pinecone_service import PineconeService
+from app.products.serializers import ProductSerializer
+from app.products.models import Product
 
 class RecommendationService:
     def __init__(self):
@@ -14,6 +16,7 @@ class RecommendationService:
             for match in results.matches:
                 product_data = match.metadata
                 product_data['score'] = match.score
+                product_data['vector_id'] = match.id
                 similar_products.append(product_data)
             
             return similar_products

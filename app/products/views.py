@@ -406,8 +406,43 @@ class ProductViewSet(viewsets.ModelViewSet):
         
         try:
             recommendation_service = RecommendationService()
-            similar_products = recommendation_service.get_similar_products(query, top_k=count)
-            return Response(similar_products)
+            vector_results = recommendation_service.get_similar_products(query, top_k=count)
+            
+            if not vector_results:
+                return Response([])
+                
+            product_uuids = []
+            similarity_scores = {}
+            
+            for item in vector_results:
+                if 'id' in item:
+                    uuid_value = item['id']
+                else:
+                    uuid_value = item.get('vector_id')
+                    
+                if uuid_value:
+                    product_uuids.append(uuid_value)
+                    similarity_scores[uuid_value] = item.get('score', 0)
+            
+            products = Product.objects.filter(
+                uuid__in=product_uuids, 
+                active=True
+            ).select_related('brand', 'category', 'warranty')
+            
+            products = sorted(
+                products, 
+                key=lambda p: product_uuids.index(str(p.uuid))
+            )
+            
+            serializer = ProductSerializer(products, many=True)
+            result_data = serializer.data
+            
+            for item in result_data:
+                uuid_str = item.get('uuid')
+                if uuid_str in similarity_scores:
+                    item['similarity_score'] = similarity_scores[uuid_str]
+            
+            return Response(result_data)
         except Exception as e:
             LoggerService.objects.create(
                 user=request.user if request.user.is_authenticated else None,

@@ -36,8 +36,8 @@ class PayPalCheckoutView(APIView):
                         "reference_id": str(order.id)
                     }],
                     "application_context": {
-                        "return_url": f"{settings.FRONTEND_URL}/orders/success",
-                        "cancel_url": f"{settings.FRONTEND_URL}/orders/cancel",
+                        "return_url": f"{settings.FRONTEND_URL}/customer/carrito?payment=success",
+                        "cancel_url": f"{settings.FRONTEND_URL}/customer/carrito?payment=cancel",
                         "brand_name": "Smart Cart",
                         "user_action": "PAY_NOW"
                     }

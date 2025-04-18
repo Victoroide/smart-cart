@@ -181,18 +181,6 @@ REST_FRAMEWORK = {
 SWAGGER_SETTINGS = {
     'USE_SESSION_AUTH': False,
     'VALIDATOR_URL': None,
-    'SECURITY_DEFINITIONS': {
-        'Bearer': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header'
-        }
-    },
-    'SECURITY_REQUIREMENTS': [
-        {'Bearer': []}
-    ],
-    'USE_SESSION_AUTH': False,
-    'JSON_EDITOR': True,
     'PERSIST_AUTH': True,
 }
 PINECONE_INDEX_NAME = config('PINECONE_INDEX_NAME')

@@ -32,14 +32,31 @@ class OrderViewSet(viewsets.ModelViewSet):
         return queryset.order_by('-created_at')
 
     def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         with transaction.atomic():
             try:
-                serializer = self.get_serializer(data=request.data)
-                serializer.is_valid(raise_exception=True)
-                order = serializer.save()
+                items_data = serializer.validated_data.pop('items', [])
                 
-                response_serializer = OrderSerializer(order, context=self.get_serializer_context())
-                response_data = response_serializer.data
+                existing_order = Order.objects.filter(
+                    user=request.user, 
+                    status='created'
+                ).first()
+                
+                if existing_order:
+                    order = existing_order
+                    order.items.all().delete()
+                else:
+                    subtotal = sum(item.get('unit_price', 0) * item.get('quantity', 0) for item in items_data)
+                    order = Order.objects.create(
+                        user=request.user,
+                        total_amount=subtotal,
+                        status='created',
+                        **serializer.validated_data
+                    )
+                
+                for item_data in items_data:
+                    OrderItem.objects.create(order=order, **item_data)
                 
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,
@@ -48,7 +65,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     description='Created order ' + str(order.id)
                 )
                 
-                return Response(response_data, status=status.HTTP_201_CREATED)
+                return Response(self.get_serializer(order).data, status=status.HTTP_201_CREATED)
             except Exception as e:
                 LoggerService.objects.create(
                     user=request.user if request.user.is_authenticated else None,

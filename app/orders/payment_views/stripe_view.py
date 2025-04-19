@@ -16,6 +16,9 @@ class StripeCheckoutView(APIView):
                 order_id = request.data.get('order_id')
                 order = Order.objects.get(id=order_id, user=request.user)
                 
+                order_items = order.items.all()
+                subtotal = sum(item.unit_price * item.quantity for item in order_items)
+
                 stripe.api_key = settings.STRIPE_API_KEY
                 
                 checkout_session = stripe.checkout.Session.create(
@@ -27,7 +30,7 @@ class StripeCheckoutView(APIView):
                                 'name': f'Order #{order.id}',
                                 'description': f'Purchase from Smart Cart',
                             },
-                            'unit_amount': int(order.total_amount * 100),
+                            'unit_amount': int(subtotal * 100),
                         },
                         'quantity': 1,
                     }],

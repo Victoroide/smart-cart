@@ -1,11 +1,11 @@
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.conf import settings
-from app.orders.models import Payment, Order
-from core.models import LoggerService
 import stripe
 import json
+from django.conf import settings
+from app.orders.models import Order, Payment
+from core.models import LoggerService
 
 @csrf_exempt
 @require_POST
@@ -14,34 +14,52 @@ def stripe_webhook(request):
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
     
     try:
-        stripe.api_key = settings.STRIPE_API_KEY
         event = stripe.Webhook.construct_event(
             payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
         )
+    except ValueError:
+        return HttpResponse(status=400)
+    except stripe.error.SignatureVerificationError:
+        return HttpResponse(status=400)
+    
+    if event.type == 'checkout.session.completed':
+        session = event.data.object
         
-        event_data = event['data']['object']
+        payment = Payment.objects.filter(transaction_id=session.id).first()
+        if payment and payment.payment_status == 'completed':
+            return HttpResponse(status=200)
+            
+        order_id = int(session.metadata.get('order_id'))
         
-        if event['type'] == 'checkout.session.completed':
-            session_id = event_data['id']
+        try:
+            order = Order.objects.get(id=order_id)
             
-            payment = Payment.objects.select_related('order').filter(transaction_id=session_id).first()
-            
-            if payment and payment.payment_status != 'completed':
+            if payment:
                 payment.payment_status = 'completed'
                 payment.save()
-                
-                LoggerService.objects.create(
-                    action='WEBHOOK',
-                    table_name='Payment',
-                    description=f'Payment for order {payment.order.id} completed via Stripe webhook'
+            else:
+                Payment.objects.create(
+                    order=order,
+                    amount=order.total_amount,
+                    payment_method='stripe',
+                    payment_status='completed',
+                    transaction_id=session.id
                 )
-        
-        return HttpResponse(status=200)
-        
-    except Exception as e:
-        LoggerService.objects.create(
-            action='ERROR',
-            table_name='Payment',
-            description=f'Error in Stripe webhook: {str(e)}'
-        )
-        return HttpResponse(status=400)
+            
+            order.status = 'paid'
+            order.save()
+            
+            LoggerService.objects.create(
+                action='PAYMENT_COMPLETED',
+                table_name='Order',
+                description=f'Payment completed for order {order.id}'
+            )
+            
+        except Order.DoesNotExist:
+            LoggerService.objects.create(
+                action='ERROR',
+                table_name='Payment',
+                description=f'Order not found for completed payment: {order_id}'
+            )
+            
+    return HttpResponse(status=200)

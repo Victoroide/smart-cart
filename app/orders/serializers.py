@@ -118,27 +118,17 @@ class OrderCreateSerializer(serializers.ModelSerializer):
     
     @transaction.atomic
     def create(self, validated_data):
-        items_data = validated_data.pop('items')
-        user = self.context['request'].user
-        
-        order = Order.objects.create(
-            user=user,
-            total_amount=0,
-            currency=validated_data['currency'],
-            active=True
-        )
-        
-        total_amount = 0
+        items_data = validated_data.pop('items', [])
+        order = Order.objects.create(**validated_data)
         
         for item_data in items_data:
-            product = item_data['product']
+            product_id = item_data.pop('product_id')
+            product = Product.objects.get(id=product_id)
             quantity = item_data['quantity']
             
             inventory = Inventory.objects.select_for_update().get(product=product)
-            
             if inventory.stock < quantity:
-                Order.objects.filter(id=order.id).delete()
-                raise ValidationError(f"Insufficient inventory for {product.name}. Available: {inventory.stock}")
+                raise ValidationError(f"Insufficient inventory for {product.name}")
                 
             unit_price = product.price_usd if order.currency == 'USD' else product.price_bs
             
@@ -151,10 +141,12 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             
             inventory.stock -= quantity
             inventory.save()
-            
-            total_amount += unit_price * quantity
-            
-        order.total_amount = total_amount
+        
+        total = sum(
+            item.unit_price * item.quantity
+            for item in order.items.all()
+        )
+        order.total_amount = total
         order.save()
         
         return order

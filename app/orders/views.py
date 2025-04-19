@@ -34,25 +34,28 @@ class OrderViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = OrderCreateSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        try:
-            order = serializer.save(user=request.user)
-            
-            LoggerService.objects.create(
-                user=request.user if request.user.is_authenticated else None,
-                action='CREATE',
-                table_name='Order',
-                description='Created order ' + str(order.id)
-            )
-            
-            return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            LoggerService.objects.create(
-                user=request.user if request.user.is_authenticated else None,
-                action='ERROR',
-                table_name='Order',
-                description='Error on create order: ' + str(e)
-            )
-            raise e
+        
+        with transaction.atomic():
+            try:
+                order = serializer.save(user=request.user)
+                
+                LoggerService.objects.create(
+                    user=request.user if request.user.is_authenticated else None,
+                    action='CREATE',
+                    table_name='Order',
+                    description='Created order ' + str(order.id)
+                )
+                
+                return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+                
+            except Exception as e:
+                LoggerService.objects.create(
+                    user=request.user if request.user.is_authenticated else None,
+                    action='ERROR',
+                    table_name='Order',
+                    description='Error on create order: ' + str(e)
+                )
+                raise e
 
     def partial_update(self, request, *args, **kwargs):
         with transaction.atomic():

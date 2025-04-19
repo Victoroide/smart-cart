@@ -32,10 +32,6 @@ class StripeCheckoutView(APIView):
                         'quantity': 1,
                     }],
                     mode='payment',
-                    success_url=(
-                        f'{settings.FRONTEND_URL}/customer/carrito?payment=success'
-                    ),
-                    cancel_url=f'{settings.FRONTEND_URL}/customer/carrito?payment=cancel',
                     metadata={
                         'order_id': order.id
                     }

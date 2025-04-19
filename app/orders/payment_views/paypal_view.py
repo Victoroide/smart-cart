@@ -67,9 +67,6 @@ class PayPalCheckoutView(APIView):
                     payment.payment_details = payment_details
                     payment.save()
                     
-                    order.status = 'payment_pending'
-                    order.save()
-                    
                     approve_link = next((link for link in data['links'] if link['rel'] == 'approve'), None)
                     
                     LoggerService.objects.create(

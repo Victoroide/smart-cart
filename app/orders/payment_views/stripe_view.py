@@ -56,9 +56,6 @@ class StripeCheckoutView(APIView):
                 payment.payment_status = 'processing'
                 payment.save()
                 
-                order.status = 'payment_pending'
-                order.save()
-                
                 LoggerService.objects.create(
                     user=request.user,
                     action='PAYMENT_STARTED',

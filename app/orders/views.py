@@ -37,23 +37,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             try:
                 items_data = serializer.validated_data.pop('items', [])
-                
-                existing_order = Order.objects.filter(
-                    user=request.user, 
-                    status='created'
-                ).first()
-                
-                if existing_order:
-                    order = existing_order
-                    order.items.all().delete()
-                else:
-                    subtotal = sum(item.get('unit_price', 0) * item.get('quantity', 0) for item in items_data)
-                    order = Order.objects.create(
-                        user=request.user,
-                        total_amount=subtotal,
-                        status='created',
-                        **serializer.validated_data
-                    )
+                subtotal = sum(item.get('unit_price', 0) * item.get('quantity', 0) for item in items_data)
+                order = Order.objects.create(
+                    user=request.user,
+                    total_amount=subtotal,
+                    **serializer.validated_data
+                )
                 
                 for item_data in items_data:
                     OrderItem.objects.create(order=order, **item_data)
@@ -184,7 +173,6 @@ class OrderViewSet(viewsets.ModelViewSet):
                         "total_price": float(item.unit_price * item.quantity)
                     } for item in items
                 ],
-                "status": order.status,
                 "created_at": order.created_at,
                 "updated_at": order.updated_at
             }
@@ -482,9 +470,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST
                         )
                 
-                order.status = 'payment_pending'
-                order.save()
-                
                 LoggerService.objects.create(
                     user=request.user,
                     action='CREATE',
@@ -553,9 +538,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 payment.save()
                 
                 order = payment.order
-                order.status = 'paid'
-                order.save()
-                
+
                 LoggerService.objects.create(
                     user=request.user,
                     action='UPDATE',
@@ -566,7 +549,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 return Response({
                     "message": "Payment confirmed successfully",
                     "payment_status": payment.payment_status,
-                    "order_status": order.status
                 })
             else:
                 error_message = result.get("error", "Payment could not be confirmed")

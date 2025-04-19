@@ -46,9 +46,6 @@ def stripe_webhook(request):
                     transaction_id=session.id
                 )
             
-            order.status = 'paid'
-            order.save()
-            
             LoggerService.objects.create(
                 action='PAYMENT_COMPLETED',
                 table_name='Order',

@@ -32,37 +32,27 @@ class OrderViewSet(viewsets.ModelViewSet):
         return queryset.order_by('-created_at')
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = OrderCreateSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        with transaction.atomic():
-            try:
-                items_data = serializer.validated_data.pop('items', [])
-                subtotal = sum(item.get('unit_price', 0) * item.get('quantity', 0) for item in items_data)
-                order = Order.objects.create(
-                    user=request.user,
-                    total_amount=subtotal,
-                    **serializer.validated_data
-                )
-                
-                for item_data in items_data:
-                    OrderItem.objects.create(order=order, **item_data)
-                
-                LoggerService.objects.create(
-                    user=request.user if request.user.is_authenticated else None,
-                    action='CREATE',
-                    table_name='Order',
-                    description='Created order ' + str(order.id)
-                )
-                
-                return Response(self.get_serializer(order).data, status=status.HTTP_201_CREATED)
-            except Exception as e:
-                LoggerService.objects.create(
-                    user=request.user if request.user.is_authenticated else None,
-                    action='ERROR',
-                    table_name='Order',
-                    description='Error on create order: ' + str(e)
-                )
-                raise e
+        try:
+            order = serializer.save(user=request.user)
+            
+            LoggerService.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                action='CREATE',
+                table_name='Order',
+                description='Created order ' + str(order.id)
+            )
+            
+            return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            LoggerService.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                action='ERROR',
+                table_name='Order',
+                description='Error on create order: ' + str(e)
+            )
+            raise e
 
     def partial_update(self, request, *args, **kwargs):
         with transaction.atomic():

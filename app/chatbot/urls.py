@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ChatbotSessionViewSet, ChatbotMessageViewSet
+from app.chatbot.viewsets import ChatbotSessionViewSet, ChatbotMessageViewSet
 
 router = DefaultRouter()
 router.register(r'sessions', ChatbotSessionViewSet, basename='chatbot-session')

@@ -1,13 +1,14 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import OrderViewSet, OrderItemViewSet, DeliveryViewSet
-from .payment_views import StripeCheckoutView, PayPalCheckoutView, PaymentStatusView
-from .webhooks import stripe_webhook, paypal_webhook
+from app.orders.viewsets import OrderViewSet, OrderItemViewSet, DeliveryViewSet, PaymentViewSet
+from app.orders.viewsets.payment_views import StripeCheckoutView, PayPalCheckoutView, PaymentStatusView
+from app.orders.webhooks import stripe_webhook, paypal_webhook
 
 router = DefaultRouter()
 router.register(r'order-items', OrderItemViewSet)
 router.register(r'deliveries', DeliveryViewSet)
 router.register(r'finance', OrderViewSet)
+router.register(r'payments', PaymentViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

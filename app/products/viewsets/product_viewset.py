@@ -12,9 +12,7 @@ from app.products.serializers import ProductSerializer
 from services.pinecone_service import PineconeService
 from services.recommendation_service import RecommendationService
 
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
-
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.filter(active=True).order_by('-created_at')
@@ -30,34 +28,29 @@ class ProductViewSet(viewsets.ModelViewSet):
     filterset_fields = ['brand', 'category']
     search_fields = ['name', 'description']
 
-    @swagger_auto_schema(
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'name': openapi.Schema(type=openapi.TYPE_STRING, description='Product name'),
-                'brand': openapi.Schema(type=openapi.TYPE_INTEGER, description='Brand ID'),
-                'category': openapi.Schema(type=openapi.TYPE_INTEGER, description='Category ID'),
-                'warranty': openapi.Schema(type=openapi.TYPE_INTEGER, description='Warranty ID'),
-                'stock': openapi.Schema(type=openapi.TYPE_INTEGER, description='Available inventory quantity'),
-                'price_usd': openapi.Schema(type=openapi.TYPE_NUMBER, description='Price in USD'),
-                'description': openapi.Schema(type=openapi.TYPE_STRING, description='Product description'),
-                'active': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='Product status'),
-                'technical_specifications': openapi.Schema(type=openapi.TYPE_STRING, description='Technical specifications'),
-            },
-            example={
-                "name": "Smartphone XYZ",
-                "brand": 1,
-                "category": 2,
-                "warranty": 3,
-                "stock": 100,
-                "price_usd": 699.99,
-                "description": "A high-end smartphone with excellent features.",
-                "active": True,
-                "technical_specifications": "6.5-inch display, 128GB storage, 5G support"
-            }
-        ),
-        operation_description="Create a new product with optional image upload. Use multipart/form-data to upload files.",
-        consumes=['multipart/form-data', 'application/json']
+    @extend_schema(
+        request=ProductSerializer,
+        responses={201: ProductSerializer},
+        description="Create a new product with optional image upload. Use multipart/form-data to upload files.",
+        examples=[
+            OpenApiExample(
+                'Product Example',
+                summary='Basic product creation',
+                value={
+                    "name": "Smartphone XYZ",
+                    "brand": 1,
+                    "category": 2,
+                    "warranty": 3,
+                    "stock": 100,
+                    "price_usd": 699.99,
+                    "description": "A high-end smartphone with excellent features.",
+                    "active": True,
+                    "technical_specifications": "6.5-inch display, 128GB storage, 5G support"
+                },
+                request_only=True,
+            )
+        ],
+        tags=['Products']
     )
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -117,27 +110,22 @@ class ProductViewSet(viewsets.ModelViewSet):
                 )
                 raise e
                 
-    @swagger_auto_schema(
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'name': openapi.Schema(type=openapi.TYPE_STRING, description='Product name'),
-                'brand_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='Brand ID'),
-                'category_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='Category ID'),
-                'warranty_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='Warranty ID'),
-                'stock': openapi.Schema(type=openapi.TYPE_INTEGER, description='Available inventory quantity'),
-                'price_usd': openapi.Schema(type=openapi.TYPE_NUMBER, description='Price in USD'),
-                'description': openapi.Schema(type=openapi.TYPE_STRING, description='Product description'),
-                'active': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='Product status'),
-                'technical_specifications': openapi.Schema(type=openapi.TYPE_STRING, description='Technical specifications'),
-            },
-            example={
-                "name": "Updated Smartphone XYZ",
-                "price_usd": 899.99
-            }
-        ),
-        operation_description="Update a product with optional image upload. Use multipart/form-data to upload files.",
-        consumes=['multipart/form-data', 'application/json']
+    @extend_schema(
+        request=ProductSerializer,
+        responses={200: ProductSerializer},
+        description="Update a product with optional image upload. Use multipart/form-data to upload files.",
+        examples=[
+            OpenApiExample(
+                'Product Update Example',
+                summary='Basic product update',
+                value={
+                    "name": "Updated Smartphone XYZ",
+                    "price_usd": 899.99
+                },
+                request_only=True,
+            )
+        ],
+        tags=['Products']
     )
     def partial_update(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -233,33 +221,36 @@ class ProductViewSet(viewsets.ModelViewSet):
                 )
                 raise e
 
-    @swagger_auto_schema(
-        manual_parameters=[
-            openapi.Parameter(
-                'query', 
-                openapi.IN_QUERY, 
-                description="Search term to find similar products", 
-                type=openapi.TYPE_STRING,
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name='query',
+                type=str,
+                description='Search query for product name or description',
                 required=True
             ),
-            openapi.Parameter(
-                'count', 
-                openapi.IN_QUERY, 
-                description="Number of similar products to return", 
-                type=openapi.TYPE_INTEGER,
+            OpenApiParameter(
+                name='count',
+                type=int,
+                description='Number of similar products to return',
+                required=False,
                 default=5
-            ),
+            )
         ],
-        responses={
-            200: openapi.Response('List of similar products', ProductSerializer(many=True)),
-            400: openapi.Response('Bad Request', openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'error': openapi.Schema(type=openapi.TYPE_STRING)
-                }
-            ))
-        },
-        operation_description="Find products similar to the search query"
+        responses={200: ProductSerializer(many=True)},
+        description="Get similar products based on a search query. Returns a list of products sorted by similarity score.",
+        examples=[
+            OpenApiExample(
+                'Similar Products Example',
+                summary='Get similar products',
+                value={
+                    "query": "Smartphone",
+                    "count": 5
+                },
+                request_only=True,
+            )
+        ],
+        tags=['Products']
     )
     @action(detail=False, methods=['get'])
     def similar(self, request):

@@ -10,7 +10,8 @@ gunicorn
 dotenv
 boto3
 botocore
-drf-yasg
+drf-spectacular
+drf-spectacular-sidecar
 python-decouple==3.8
 pinecone
 openai

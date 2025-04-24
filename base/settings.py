@@ -60,7 +60,8 @@ INSTALLED_APPS = [
     'app.orders',
     'app.chatbot',
     'app.reports',
-    'drf_yasg',
+    'drf_spectacular',
+    'drf_spectacular_sidecar',
     'storages'
 ]
 
@@ -122,6 +123,9 @@ USE_TZ = True
 
 USE_S3 = config('USE_S3', default='False') == 'True'
 
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+
 if USE_S3:
     AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
@@ -135,30 +139,17 @@ if USE_S3:
     
     STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/public/static/'
     STATICFILES_STORAGE = 'base.storage.StaticStorage'
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
-else:
-    STATIC_URL = '/static/'
-    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-    MEDIA_URL = '/media/'
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
-AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
-AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='us-east-1')
-
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
-# MEDIA FILES
-MEDIA_URL = '/media/' if not USE_S3 else f'https://{AWS_S3_CUSTOM_DOMAIN}/public/media/'
-PUBLIC_MEDIA_LOCATION = 'public'
-PRIVATE_MEDIA_LOCATION = 'private'
-
-if USE_S3:
+    
+    SPECTACULAR_STATIC_DIRNAME = os.path.join(STATIC_ROOT, 'drf_spectacular_sidecar')
+    os.makedirs(SPECTACULAR_STATIC_DIRNAME, exist_ok=True)
+    
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/public/media/'
     DEFAULT_FILE_STORAGE = 'base.storage.PublicMediaStorage'
     PRIVATE_FILE_STORAGE = 'base.storage.PrivateMediaStorage'
 else:
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
+    STATIC_URL = '/static/'
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
     DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -174,9 +165,24 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
-    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PAGINATION_CLASS': 'core.pagination.CustomPagination',
     'PAGE_SIZE': 200,
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Smart Cart API',
+    'DESCRIPTION': 'E-commerce API for Smart Cart platform',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SWAGGER_UI_DIST': 'SIDECAR',
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'REDOC_DIST': 'SIDECAR',
+    'COMPONENT_SPLIT_REQUEST': True,
+    'COMPONENT_NO_READ_ONLY_REQUIRED': False,
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
+    'SERVE_AUTHENTICATION': None,
+    'SERVE_PUBLIC': True,
 }
 
 SIMPLE_JWT = {
@@ -189,6 +195,7 @@ SWAGGER_SETTINGS = {
     'VALIDATOR_URL': None,
     'PERSIST_AUTH': True,
 }
+
 PINECONE_INDEX_NAME = config('PINECONE_INDEX_NAME')
 PINECONE_API_KEY = config('PINECONE_API_KEY')
 
@@ -210,3 +217,8 @@ PAYPAL_SANDBOX = config('PAYPAL_SANDBOX', default='True') == 'True'
 PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com" if PAYPAL_SANDBOX else "https://api-m.paypal.com"
 
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:4200')
+
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+]

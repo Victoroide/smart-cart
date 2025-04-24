@@ -21,8 +21,6 @@ from openpyxl.utils import get_column_letter
 
 from core.models import LoggerService
 from core.pagination import CustomPagination
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
 
 from .models import Report
 from .serializers import ReportSerializer, ReportCreateSerializer
@@ -33,18 +31,6 @@ class ReportView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPagination
 
-    @swagger_auto_schema(
-        operation_summary="List reports",
-        operation_description="Returns a list of reports created by the current user or all reports for staff",
-        responses={
-            200: ReportSerializer(many=True),
-            500: "Server error"
-        },
-        manual_parameters=[
-            openapi.Parameter('page', openapi.IN_QUERY, description="Page number", type=openapi.TYPE_INTEGER),
-            openapi.Parameter('page_size', openapi.IN_QUERY, description="Items per page", type=openapi.TYPE_INTEGER),
-        ]
-    )
     def get(self, request):
         try:
             if not request.user.is_staff:
@@ -66,19 +52,6 @@ class ReportView(APIView):
             )
             return Response({"error": str(e)}, status=500)
 
-    @swagger_auto_schema(
-        operation_summary="Create and generate report",
-        operation_description="Creates a new report and returns the generated data or file URL",
-        request_body=ReportCreateSerializer,
-        responses={
-            200: openapi.Response(
-                description="Report generated successfully", 
-                schema=ReportSerializer
-            ),
-            400: "Invalid input",
-            500: "Server error"
-        }
-    )
     def post(self, request):
         with transaction.atomic():
             try:

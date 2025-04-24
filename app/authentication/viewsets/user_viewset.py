@@ -5,8 +5,6 @@ from django.db import transaction
 from django.contrib.auth import get_user_model
 from core.models import LoggerService
 from core.pagination import CustomPagination
-from drf_yasg import openapi
-from drf_yasg.utils import swagger_auto_schema
 from app.authentication.serializers import UserSerializer, ChangePasswordSerializer
 
 User = get_user_model()
@@ -138,26 +136,7 @@ class UserViewSet(viewsets.ModelViewSet):
                     description='Error on delete user: ' + str(e)
                 )
                 raise e
-
-    @swagger_auto_schema(
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            required=['old_password', 'new_password'],
-            properties={
-                'old_password': openapi.Schema(type=openapi.TYPE_STRING, description='Current password'),
-                'new_password': openapi.Schema(type=openapi.TYPE_STRING, description='New password to set')
-            },
-            example={
-                "old_password": "currentPassword123",
-                "new_password": "newSecurePassword456"
-            }
-        ),
-        responses={
-            200: openapi.Response(description="Password changed successfully"),
-            400: openapi.Response(description="Invalid input"),
-            500: openapi.Response(description="Server error")
-        }
-    )
+            
     @action(detail=True, methods=['post'], url_path='change-password')
     def change_password(self, request, pk=None):
         user = self.get_object()

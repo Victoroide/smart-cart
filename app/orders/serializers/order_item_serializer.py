@@ -5,7 +5,7 @@ from app.products.models import Inventory, Product
 from app.products.serializers import ProductSerializer
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    product = ProductSerializer(source='product', read_only=True)
+    product = ProductSerializer(read_only=True)
     
     class Meta:
         model = OrderItem

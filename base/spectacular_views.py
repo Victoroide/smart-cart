@@ -1,10 +1,11 @@
 import os
 import mimetypes
-from django.http import HttpResponse, FileResponse
+from django.http import HttpResponse
 from django.views.generic import TemplateView
 from django.urls import path
 from drf_spectacular.views import SpectacularAPIView
-from django.conf import settings
+from pathlib import Path
+import requests
 
 class SwaggerUIView(TemplateView):
     template_name = 'swagger-ui.html'
@@ -15,43 +16,35 @@ class SwaggerUIView(TemplateView):
         return context
 
 def serve_swagger_file(request, filename):
-    # Look in multiple locations to find the file
-    possible_locations = [
-        os.path.join(settings.BASE_DIR, 'staticfiles', 'drf_spectacular_sidecar', 'swagger-ui-dist'),
-        os.path.join(settings.BASE_DIR, 'static', 'drf_spectacular_sidecar', 'swagger-ui-dist'),
-        os.path.join('/app/staticfiles', 'drf_spectacular_sidecar', 'swagger-ui-dist'),
-        os.path.join('/tmp/staticfiles', 'drf_spectacular_sidecar', 'swagger-ui-dist'),
-    ]
+    print(f"Looking for swagger file: {filename}")
     
-    file_path = None
-    for location in possible_locations:
-        temp_path = os.path.join(location, filename)
-        if os.path.exists(temp_path):
-            file_path = temp_path
-            break
+    # Define the content directly in the code for critical files
+    if filename == 'swagger-ui.css':
+        with open('staticfiles/drf_spectacular_sidecar/swagger-ui-dist/swagger-ui.css', 'wb') as f:
+            f.write(requests.get('https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css').content)
+        return HttpResponse(open('staticfiles/drf_spectacular_sidecar/swagger-ui-dist/swagger-ui.css', 'rb').read(), content_type='text/css')
     
-    if not file_path:
-        return HttpResponse(f"File {filename} not found", status=404)
+    elif filename == 'swagger-ui-bundle.js':
+        with open('staticfiles/drf_spectacular_sidecar/swagger-ui-dist/swagger-ui-bundle.js', 'wb') as f:
+            f.write(requests.get('https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js').content)
+        return HttpResponse(open('staticfiles/drf_spectacular_sidecar/swagger-ui-dist/swagger-ui-bundle.js', 'rb').read(), content_type='application/javascript')
     
-    content_type, encoding = mimetypes.guess_type(file_path)
-    content_type = content_type or 'application/octet-stream'
+    elif filename == 'swagger-ui-standalone-preset.js':
+        with open('staticfiles/drf_spectacular_sidecar/swagger-ui-dist/swagger-ui-standalone-preset.js', 'wb') as f:
+            f.write(requests.get('https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js').content)
+        return HttpResponse(open('staticfiles/drf_spectacular_sidecar/swagger-ui-dist/swagger-ui-standalone-preset.js', 'rb').read(), content_type='application/javascript')
     
-    try:
-        response = FileResponse(open(file_path, 'rb'), content_type=content_type)
-        if encoding:
-            response['Content-Encoding'] = encoding
-        return response
-    except FileNotFoundError:
-        return HttpResponse(f"File {filename} not found", status=404)
+    else:
+        return HttpResponse(f"File not found: {filename}", status=404)
 
 def get_spectacular_urls():
+    import requests  # Import here to avoid issues at module level
+    
     return [
         path('schema/', SpectacularAPIView.as_view(), name='schema'),
         path('docs/', SwaggerUIView.as_view(), name='swagger-ui'),
         
-        # Match the URL pattern in the HTML template
         path('swagger-ui-assets/swagger-ui.css', serve_swagger_file, {'filename': 'swagger-ui.css'}),
         path('swagger-ui-assets/swagger-ui-bundle.js', serve_swagger_file, {'filename': 'swagger-ui-bundle.js'}),
         path('swagger-ui-assets/swagger-ui-standalone-preset.js', serve_swagger_file, {'filename': 'swagger-ui-standalone-preset.js'}),
-        path('swagger-ui-assets/favicon-32x32.png', serve_swagger_file, {'filename': 'favicon-32x32.png'}),
     ]

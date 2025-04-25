@@ -81,14 +81,15 @@ ROOT_URLCONF = 'base.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'django.template.context_processors.static'
+                'django.template.context_processors.static',
             ],
         },
     },
@@ -152,6 +153,10 @@ else:
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
     DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 
+STATIC_URL = '/static/' if not USE_S3 else f'https://{AWS_S3_CUSTOM_DOMAIN}/public/static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'authentication.User'
@@ -175,9 +180,9 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'E-commerce API for Smart Cart platform',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'SWAGGER_UI_DIST': 'SIDECAR',
-    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
-    'REDOC_DIST': 'SIDECAR',
+    'SWAGGER_UI_DIST': os.path.join(BASE_DIR, 'staticfiles', 'drf_spectacular_sidecar', 'swagger-ui-dist'),
+    'SWAGGER_UI_FAVICON_HREF': os.path.join(BASE_DIR, 'staticfiles', 'drf_spectacular_sidecar', 'swagger-ui-dist', 'favicon-32x32.png'),
+    'REDOC_DIST': os.path.join(BASE_DIR, 'staticfiles', 'drf_spectacular_sidecar', 'redoc'),
     'COMPONENT_SPLIT_REQUEST': True,
     'COMPONENT_NO_READ_ONLY_REQUIRED': False,
     'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],

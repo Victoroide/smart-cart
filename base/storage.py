@@ -15,6 +15,9 @@ class StaticStorage(S3Boto3Storage):
 class SpectacularStaticStorage(StaticFilesStorage):
     location = 'staticfiles/drf_spectacular_sidecar'
 
+    def url(self, name):
+        return f'/static/drf_spectacular_sidecar/{name}'
+
 class PublicMediaStorage(S3Boto3Storage):
     location = 'public'
     file_overwrite = False

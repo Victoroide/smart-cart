@@ -13,13 +13,7 @@ class CustomerLoyaltyViewSet(viewsets.ModelViewSet):
     queryset = CustomerLoyalty.objects.all()
     serializer_class = CustomerLoyaltySerializer
     pagination_class = CustomPagination
-    
-    def get_permissions(self):
-        if self.action in ['retrieve', 'update', 'partial_update']:
-            permission_classes = [permissions.IsAuthenticated, IsAdminOrOwner]
-        else:
-            permission_classes = [permissions.IsAdminUser]
-        return [permission() for permission in permission_classes]
+    permission_classes = [permissions.IsAuthenticated]
     
     def get_object(self):
         pk = self.kwargs.get('pk')

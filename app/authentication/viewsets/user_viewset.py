@@ -21,30 +21,16 @@ class UserViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action == 'create':
             permission_classes = [permissions.AllowAny]
-        elif self.action in ['update', 'partial_update', 'destroy', 'change_password']:
+        elif self.action in ['destroy']:
             permission_classes = [permissions.IsAuthenticated, IsAdminOrOwner]
         else:
-            permission_classes = [permissions.IsAdminUser]
+            permission_classes = [permissions.IsAuthenticated]
         return [permission() for permission in permission_classes]
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
-
-    def get_object(self):
-        pk = self.kwargs.get('pk')
-        if pk == 'me' and self.request.user.is_authenticated:
-            return self.request.user
-        return super().get_object()
-
-    def get_object_permissions(self):
-        if not self.request.user.is_authenticated:
-            return None
-        perm = IsAdminOrOwner()
-        if not perm.has_object_permission(self.request, self, self.get_object()):
-            return None
-        return perm
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():

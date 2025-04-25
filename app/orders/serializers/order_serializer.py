@@ -6,6 +6,7 @@ from app.orders.serializers.order_item_serializer import OrderItemSerializer, Or
 from app.orders.serializers.payment_serializer import PaymentSerializer
 from app.orders.serializers.delivery_serializer import DeliverySerializer
 from rest_framework.exceptions import ValidationError
+from services.discount_service import DiscountService
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
@@ -20,6 +21,8 @@ class OrderSerializer(serializers.ModelSerializer):
             'total_amount',
             'currency',
             'active',
+            'discount_applied',
+            'discount_percentage',
             'items',
             'payment',
             'delivery',
@@ -35,15 +38,16 @@ class OrderCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ['currency', 'items']
-        
+    
     @transaction.atomic
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
+        user = self.context['request'].user
         
         validated_data['total_amount'] = 0
         
-        order = Order.objects.create(**validated_data)
-        total_amount = 0
+        order = Order.objects.create(user=user, **validated_data)
+        subtotal = 0
         
         processed_products = set()
         
@@ -74,9 +78,14 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             inventory.stock -= quantity
             inventory.save()
             
-            total_amount += unit_price * quantity
+            subtotal += unit_price * quantity
         
-        order.total_amount = total_amount
+        discount_percentage = DiscountService.get_loyalty_discount(user)
+        discount_amount = (subtotal * discount_percentage) / 100
+        
+        order.discount_percentage = discount_percentage
+        order.discount_applied = discount_amount
+        order.total_amount = subtotal - discount_amount
         order.save()
         
         return order

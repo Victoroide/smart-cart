@@ -1,13 +1,16 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from app.authentication.serializers.customer_loyalty_serializer import CustomerLoyaltySerializer
 
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
+    loyalty = CustomerLoyaltySerializer(read_only=True)
+    
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'last_name', 'role', 'active', 'password', 'is_staff', 'is_superuser']
+        fields = ['id', 'email', 'first_name', 'last_name', 'role', 'active', 'password', 'is_staff', 'is_superuser', 'loyalty']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -31,6 +34,31 @@ class UserSerializer(serializers.ModelSerializer):
             data['is_active'] = data['active']
         
         return data
+    
+    def create(self, validated_data):
+        validated_data = self._sync_role_and_permissions(validated_data)
+        password = validated_data.pop('password')
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+        
+        from app.authentication.models import CustomerLoyalty
+        CustomerLoyalty.objects.create(user=user)
+        
+        return user
+    
+    def update(self, instance, validated_data):
+        validated_data = self._sync_role_and_permissions(validated_data)
+        password = validated_data.pop('password', None)
+        
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+            
+        if password is not None:
+            instance.set_password(password)
+        
+        instance.save()
+        return instance
 
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)

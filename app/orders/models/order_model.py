@@ -7,3 +7,5 @@ class Order(TimestampedModel):
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=10)
     active = models.BooleanField(default=True)
+    discount_applied = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    discount_percentage = models.IntegerField(default=0)

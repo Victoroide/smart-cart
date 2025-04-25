@@ -6,6 +6,7 @@ from core.models import LoggerService
 from core.pagination import CustomPagination
 from app.orders.models import Order, OrderItem
 from app.orders.serializers import OrderSerializer, OrderCreateSerializer
+from services.discount_service import DiscountService
 from base import settings
 
 class OrderViewSet(viewsets.ModelViewSet):
@@ -131,55 +132,37 @@ class OrderViewSet(viewsets.ModelViewSet):
             tax_amount = subtotal * tax_rate
             
             shipping_cost = getattr(settings, 'SHIPPING_COST', 10.0)
-            discount = 0
             
-            total = subtotal - discount
+            discount_percentage = DiscountService.get_loyalty_discount(order.user)
+            discount_amount = (subtotal * discount_percentage) / 100
             
-            if order.total_amount != total:
+            total = subtotal + tax_amount + shipping_cost - discount_amount
+            
+            if order.total_amount != total or order.discount_percentage != discount_percentage or order.discount_applied != discount_amount:
                 order.total_amount = total
+                order.discount_percentage = discount_percentage
+                order.discount_applied = discount_amount
                 order.save()
             
-            payment_status = 'not_started'
-            payment_method = None
-            
-            if hasattr(order, 'payment'):
-                payment_status = order.payment.payment_status
-                payment_method = order.payment.payment_method
-            
             cost_breakdown = {
-                "order_id": order.id,
                 "subtotal": float(subtotal),
-                "tax_rate": float(tax_rate * 100),
-                # "tax_amount": float(tax_amount),
-                # "shipping_cost": float(shipping_cost),
-                "discount": float(discount),
+                "tax_rate": float(tax_rate),
+                "tax_amount": float(tax_amount),
+                "shipping_cost": float(shipping_cost),
+                "discount_percentage": discount_percentage,
+                "discount_amount": float(discount_amount),
                 "total": float(total),
                 "currency": order.currency,
-                "payment_status": payment_status,
-                "payment_method": payment_method,
-                "items": [
-                    {
-                        "product_id": item.product.id,
-                        "product_name": item.product.name,
-                        "quantity": item.quantity,
-                        "unit_price": float(item.unit_price),
-                        "total_price": float(item.unit_price * item.quantity)
-                    } for item in items
-                ],
-                "created_at": order.created_at,
-                "updated_at": order.updated_at
             }
             
             return Response(cost_breakdown, status=status.HTTP_200_OK)
-            
+        
         except Exception as e:
+            from core.models import LoggerService
             LoggerService.objects.create(
                 user=request.user if request.user.is_authenticated else None,
                 action='ERROR',
                 table_name='Order',
-                description=f'Error getting order costs: {str(e)}'
+                description=f'Error calculating order costs: {str(e)}'
             )
-            return Response(
-                {"error": f"An error occurred: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

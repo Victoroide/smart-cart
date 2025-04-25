@@ -4,6 +4,13 @@ from django.contrib.staticfiles.storage import StaticFilesStorage
 class StaticStorage(S3Boto3Storage):
     location = 'public/static'
     file_overwrite = True
+    default_acl = 'public-read'
+    
+    def _save_content(self, obj, content, parameters):
+        content_type = getattr(content, 'content_type', None)
+        if content_type and 'ContentType' not in parameters:
+            parameters['ContentType'] = content_type
+        return super()._save_content(obj, content, parameters)
 
 class SpectacularStaticStorage(StaticFilesStorage):
     location = 'staticfiles/drf_spectacular_sidecar'

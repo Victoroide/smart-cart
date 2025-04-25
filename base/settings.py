@@ -140,10 +140,7 @@ if USE_S3:
     
     STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/public/static/'
     STATICFILES_STORAGE = 'base.storage.StaticStorage'
-    
-    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/public/media/'
-    DEFAULT_FILE_STORAGE = 'base.storage.PublicMediaStorage'
-    PRIVATE_FILE_STORAGE = 'base.storage.PrivateMediaStorage'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
 else:
     STATIC_URL = '/static/'
     MEDIA_URL = '/media/'

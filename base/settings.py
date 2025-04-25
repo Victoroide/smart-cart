@@ -141,9 +141,6 @@ if USE_S3:
     STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/public/static/'
     STATICFILES_STORAGE = 'base.storage.StaticStorage'
     
-    SPECTACULAR_STATIC_DIRNAME = os.path.join(STATIC_ROOT, 'drf_spectacular_sidecar')
-    os.makedirs(SPECTACULAR_STATIC_DIRNAME, exist_ok=True)
-    
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/public/media/'
     DEFAULT_FILE_STORAGE = 'base.storage.PublicMediaStorage'
     PRIVATE_FILE_STORAGE = 'base.storage.PrivateMediaStorage'
@@ -153,7 +150,6 @@ else:
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
     DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 
-STATIC_URL = '/static/' if not USE_S3 else f'https://{AWS_S3_CUSTOM_DOMAIN}/public/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
@@ -180,14 +176,11 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'E-commerce API for Smart Cart platform',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'SWAGGER_UI_DIST': os.path.join(BASE_DIR, 'staticfiles', 'drf_spectacular_sidecar', 'swagger-ui-dist'),
-    'SWAGGER_UI_FAVICON_HREF': os.path.join(BASE_DIR, 'staticfiles', 'drf_spectacular_sidecar', 'swagger-ui-dist', 'favicon-32x32.png'),
-    'REDOC_DIST': os.path.join(BASE_DIR, 'staticfiles', 'drf_spectacular_sidecar', 'redoc'),
-    'COMPONENT_SPLIT_REQUEST': True,
-    'COMPONENT_NO_READ_ONLY_REQUIRED': False,
+    'SERVE_PUBLIC': True,
     'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
     'SERVE_AUTHENTICATION': None,
-    'SERVE_PUBLIC': True,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'COMPONENT_NO_READ_ONLY_REQUIRED': False,
 }
 
 SIMPLE_JWT = {

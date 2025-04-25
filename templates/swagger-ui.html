@@ -1,13 +1,12 @@
-{% load static %}
 <!DOCTYPE html>
 <html>
   <head>
     <title>Smart Cart API Documentation</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" type="text/css" href="{% static 'drf_spectacular_sidecar/swagger-ui-dist/swagger-ui.css' %}">
-    <script src="{% static 'drf_spectacular_sidecar/swagger-ui-dist/swagger-ui-bundle.js' %}"></script>
-    <script src="{% static 'drf_spectacular_sidecar/swagger-ui-dist/swagger-ui-standalone-preset.js' %}"></script>
+    <link rel="stylesheet" type="text/css" href="/swagger-ui-assets/swagger-ui.css">
+    <script src="/swagger-ui-assets/swagger-ui-bundle.js"></script>
+    <script src="/swagger-ui-assets/swagger-ui-standalone-preset.js"></script>
     <style>
       html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
       *, *:before, *:after { box-sizing: inherit; }
@@ -19,7 +18,7 @@
     <script>
       window.onload = function() {
         const ui = SwaggerUIBundle({
-          url: "{% url 'schema' %}",
+          url: "{{ schema_url }}",
           dom_id: '#swagger-ui',
           presets: [
             SwaggerUIBundle.presets.apis,

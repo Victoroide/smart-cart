@@ -1,36 +1,50 @@
 from storages.backends.s3boto3 import S3Boto3Storage
-from django.contrib.staticfiles.storage import StaticFilesStorage
+from django.conf import settings
 
 class StaticStorage(S3Boto3Storage):
     location = 'public/static'
-    file_overwrite = True
     default_acl = 'public-read'
+    file_overwrite = True
+    querystring_auth = False
     
-    def _save_content(self, obj, content, parameters):
-        content_type = getattr(content, 'content_type', None)
-        if content_type and 'ContentType' not in parameters:
-            parameters['ContentType'] = content_type
-        return super()._save_content(obj, content, parameters)
-
-class SpectacularStaticStorage(StaticFilesStorage):
-    location = 'staticfiles/drf_spectacular_sidecar'
-
-    def url(self, name):
-        return f'/static/drf_spectacular_sidecar/{name}'
+    def _normalize_name(self, name):
+        if name.startswith('/'):
+            name = name[1:]
+        return name
 
 class PublicMediaStorage(S3Boto3Storage):
-    location = 'public'
+    location = 'public/media'
+    default_acl = 'public-read'
     file_overwrite = False
-
-    def __init__(self, custom_path=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.location = 'public/' + (custom_path + '/' if custom_path else '')
+    querystring_auth = False
+    
+    def __init__(self, custom_path=None, **kwargs):
+        self._custom_path = custom_path
+        super().__init__(**kwargs)
+    
+    def _normalize_name(self, name):
+        if name.startswith('/'):
+            name = name[1:]
+        
+        if self._custom_path and not name.startswith(self._custom_path):
+            name = f"{self._custom_path}/{name}"
+            
+        return name
 
 class PrivateMediaStorage(S3Boto3Storage):
-    location = 'private'
+    location = 'private/media'
+    default_acl = 'private'
     file_overwrite = False
-    custom_domain = False
-
-    def __init__(self, custom_path=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.location = 'private/' + (custom_path + '/' if custom_path else '')
+    
+    def __init__(self, custom_path=None, **kwargs):
+        self._custom_path = custom_path
+        super().__init__(**kwargs)
+    
+    def _normalize_name(self, name):
+        if name.startswith('/'):
+            name = name[1:]
+        
+        if self._custom_path and not name.startswith(self._custom_path):
+            name = f"{self._custom_path}/{name}"
+            
+        return name

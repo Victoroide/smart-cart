@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from .swagger_ui import get_swagger_urls
+from .spectacular_views import get_spectacular_urls
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -14,7 +14,7 @@ urlpatterns = [
     path('api/core/', include('core.urls')),
 ]
 
-urlpatterns += get_swagger_urls()
+urlpatterns = get_spectacular_urls() + urlpatterns
 
 if settings.USE_S3:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

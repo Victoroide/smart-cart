@@ -1,45 +1,41 @@
-from drf_spectacular.views import SpectacularSwaggerView as BaseSpectacularSwaggerView
-from drf_spectacular.views import SpectacularRedocView as BaseSpectacularRedocView
-from django.conf import settings
-from django.urls import re_path
 import os
+import mimetypes
+from django.http import HttpResponse, FileResponse
+from django.views.generic import TemplateView
+from django.urls import path
+from drf_spectacular.views import SpectacularAPIView
+from django.conf import settings
 
-class SpectacularSwaggerView(BaseSpectacularSwaggerView):
-    @property
-    def urls(self):
-        urls = super().urls
-        
-        # Force the static URLs to use the local path
-        for i, url in enumerate(urls):
-            if hasattr(url, 'pattern') and 'swagger-ui-dist' in str(url.pattern):
-                path_parts = str(url.pattern).split('swagger-ui-dist/')
-                if len(path_parts) > 1:
-                    file_path = path_parts[1].replace("'", "").replace('"', '')
-                    urls[i] = re_path(
-                        r'^swagger-ui-dist/{}$'.format(file_path),
-                        self.serve_file(
-                            os.path.join(settings.BASE_DIR, 'staticfiles', 'drf_spectacular_sidecar', 'swagger-ui-dist', file_path)
-                        ),
-                        name=f'swagger-ui-dist-{file_path}'
-                    )
-        return urls
+class SwaggerUIView(TemplateView):
+    template_name = 'swagger-ui.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['schema_url'] = self.request.build_absolute_uri('/schema/')
+        return context
 
-class SpectacularRedocView(BaseSpectacularRedocView):
-    @property
-    def urls(self):
-        urls = super().urls
+def serve_swagger_file(request, filename):
+    base_dir = os.path.join(settings.BASE_DIR, 'staticfiles', 'drf_spectacular_sidecar', 'swagger-ui-dist')
+    file_path = os.path.join(base_dir, filename)
+    
+    content_type, encoding = mimetypes.guess_type(file_path)
+    content_type = content_type or 'application/octet-stream'
+    
+    try:
+        response = FileResponse(open(file_path, 'rb'), content_type=content_type)
+        if encoding:
+            response['Content-Encoding'] = encoding
+        return response
+    except FileNotFoundError:
+        return HttpResponse(f"File {filename} not found", status=404)
+
+def get_spectacular_urls():
+    return [
+        path('schema/', SpectacularAPIView.as_view(), name='schema'),
+        path('docs/', SwaggerUIView.as_view(), name='swagger-ui'),
         
-        # Force the static URLs to use the local path
-        for i, url in enumerate(urls):
-            if hasattr(url, 'pattern') and 'redoc/' in str(url.pattern):
-                path_parts = str(url.pattern).split('redoc/')
-                if len(path_parts) > 1:
-                    file_path = path_parts[1].replace("'", "").replace('"', '')
-                    urls[i] = re_path(
-                        r'^redoc/{}$'.format(file_path),
-                        self.serve_file(
-                            os.path.join(settings.BASE_DIR, 'staticfiles', 'drf_spectacular_sidecar', 'redoc', file_path)
-                        ),
-                        name=f'redoc-{file_path}'
-                    )
-        return urls
+        path('swagger-ui-assets/swagger-ui.css', serve_swagger_file, {'filename': 'swagger-ui.css'}),
+        path('swagger-ui-assets/swagger-ui-bundle.js', serve_swagger_file, {'filename': 'swagger-ui-bundle.js'}),
+        path('swagger-ui-assets/swagger-ui-standalone-preset.js', serve_swagger_file, {'filename': 'swagger-ui-standalone-preset.js'}),
+        path('swagger-ui-assets/favicon-32x32.png', serve_swagger_file, {'filename': 'favicon-32x32.png'}),
+    ]

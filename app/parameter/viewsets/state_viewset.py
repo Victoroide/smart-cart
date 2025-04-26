@@ -13,7 +13,7 @@ class StateViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['name', 'code']
     
     def get_queryset(self):
-        queryset = State.objects.all()
+        queryset = State.objects.all().order_by('name')
         country_id = self.request.query_params.get('country')
         if country_id:
             queryset = queryset.filter(country_id=country_id)
@@ -27,6 +27,6 @@ class StateViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['get'])
     def cities(self, request, pk=None):
         state = self.get_object()
-        cities = state.cities.all()
+        cities = state.cities.all().order_by('name')
         serializer = CitySerializer(cities, many=True)
         return Response(serializer.data)

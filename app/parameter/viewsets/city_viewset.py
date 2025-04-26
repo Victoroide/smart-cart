@@ -10,7 +10,7 @@ class CityViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['name']
     
     def get_queryset(self):
-        queryset = City.objects.all()
+        queryset = City.objects.all().order_by('name')
         state_id = self.request.query_params.get('state')
         if state_id:
             queryset = queryset.filter(state_id=state_id)

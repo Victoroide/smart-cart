@@ -8,7 +8,7 @@ from drf_spectacular.utils import extend_schema
 
 @extend_schema(tags=['Country'])
 class CountryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Country.objects.all()
+    queryset = Country.objects.all().order_by('name')
     serializer_class = CountrySerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'code']

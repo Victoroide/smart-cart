@@ -4,7 +4,9 @@ from rest_framework.response import Response
 from app.parameter.models.country_model import Country
 from app.parameter.serializers.country_serializer import CountrySerializer, CountryWithStatesSerializer
 from app.parameter.serializers.state_serializer import StateSerializer
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['Country'])
 class CountryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Country.objects.all()
     serializer_class = CountrySerializer

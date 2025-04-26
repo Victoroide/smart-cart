@@ -1,7 +1,9 @@
 from rest_framework import viewsets, filters
 from app.parameter.models.city_model import City
 from app.parameter.serializers.city_serializer import CitySerializer
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['City'])
 class CityViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CitySerializer
     filter_backends = [filters.SearchFilter]

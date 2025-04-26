@@ -3,7 +3,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from app.orders.models.delivery_address_model import DeliveryAddress
 from app.orders.serializers.delivery_address_serializer import DeliveryAddressSerializer
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['DeliveryAddress'])
 class DeliveryAddressViewSet(viewsets.ModelViewSet):
     serializer_class = DeliveryAddressSerializer
     permission_classes = [permissions.IsAuthenticated]

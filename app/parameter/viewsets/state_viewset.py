@@ -4,7 +4,9 @@ from rest_framework.response import Response
 from app.parameter.models.state_model import State
 from app.parameter.serializers.state_serializer import StateSerializer, StateWithCitiesSerializer
 from app.parameter.serializers.city_serializer import CitySerializer
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['State'])
 class StateViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = StateSerializer
     filter_backends = [filters.SearchFilter]

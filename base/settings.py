@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'app.orders',
     'app.chatbot',
     'app.reports',
+    'app.parameter',
     'drf_spectacular',
     'drf_spectacular_sidecar',
     'storages'

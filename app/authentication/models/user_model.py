@@ -41,6 +41,7 @@ class User(AbstractUser, TimestampedModel):
     last_name = models.CharField(max_length=150)
     role = models.CharField(max_length=10, choices=ROLES, default='customer')
     active = models.BooleanField(default=True)
+    phone = models.CharField(max_length=30, null=True, blank=True)
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']

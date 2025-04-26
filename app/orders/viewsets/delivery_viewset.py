@@ -6,6 +6,9 @@ from core.pagination import CustomPagination
 from app.orders.models import Delivery
 from app.orders.serializers import DeliverySerializer
 from drf_spectacular.utils import extend_schema
+from rest_framework.decorators import action
+from django.utils import timezone
+from django.conf import settings
 
 @extend_schema(tags=['Delivery'])
 class DeliveryViewSet(viewsets.ModelViewSet):
@@ -13,6 +16,37 @@ class DeliveryViewSet(viewsets.ModelViewSet):
     serializer_class = DeliverySerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPagination
+
+    def get_queryset(self):
+        queryset = Delivery.objects.all()
+        
+        if not self.request.user.is_staff:
+            queryset = queryset.filter(order__user=self.request.user)
+            
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(delivery_status=status_param)
+            
+        return queryset
+    
+    @action(detail=True, methods=['post'])
+    def delivered(self, request, pk=None):
+        delivery = self.get_object()
+        
+        if delivery.delivery_status == 'delivered':
+            return Response(
+                {"detail": "Delivery is already marked as delivered."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+                
+        delivery.delivery_status = 'delivered'
+        delivery.actual_delivery_date = timezone.now().date()
+        delivery.save()
+        
+        return Response(
+            self.get_serializer(delivery).data,
+            status=status.HTTP_200_OK
+        )
 
     def create(self, request, *args, **kwargs):
         with transaction.atomic():

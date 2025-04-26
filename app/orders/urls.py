@@ -10,6 +10,7 @@ router.register(r'delivery-addresses', DeliveryAddressViewSet, basename='deliver
 router.register(r'deliveries', DeliveryViewSet, basename='delivery')
 router.register(r'finance', OrderViewSet)
 router.register(r'payments', PaymentViewSet)
+router.register(r'feedback', FeedbackViewSet, basename='feedback')
 
 urlpatterns = [
     path('', include(router.urls)),

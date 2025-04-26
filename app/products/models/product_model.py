@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Avg
 import uuid
 from core.models import TimestampedModel
 from base.storage import PublicMediaStorage
@@ -26,3 +27,14 @@ class Product(TimestampedModel):
             self.price_bs = self.price_usd * rate
             
         super().save(*args, **kwargs)
+
+    @property
+    def average_rating(self):
+        from app.orders.models.feedback_model import Feedback
+        avg = Feedback.objects.filter(product=self, product_rating__isnull=False).aggregate(avg=Avg('product_rating'))['avg']
+        return round(avg, 1) if avg else None
+    
+    @property
+    def total_reviews(self):
+        from app.orders.models.feedback_model import Feedback
+        return Feedback.objects.filter(product=self, product_rating__isnull=False).count()

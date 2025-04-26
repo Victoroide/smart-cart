@@ -353,3 +353,23 @@ class ProductViewSet(viewsets.ModelViewSet):
                 description=f'Error syncing all products to Pinecone: {str(e)}'
             )
             return Response({"error": f"Error syncing products: {str(e)}"}, status=500)
+        
+    @action(detail=True, methods=['get'], url_path='reviews')
+    def product_reviews(self, request, pk=None):
+        product = self.get_object()
+        from app.orders.models.feedback_model import Feedback
+        
+        feedbacks = Feedback.objects.filter(
+            product=product, 
+            product_rating__isnull=False
+        ).order_by('-created_at')
+        
+        page = self.paginate_queryset(feedbacks)
+        if page is not None:
+            from app.orders.serializers.feedback_serializer import ProductFeedbackSerializer
+            serializer = ProductFeedbackSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        from app.orders.serializers.feedback_serializer import ProductFeedbackSerializer
+        serializer = ProductFeedbackSerializer(feedbacks, many=True)
+        return Response(serializer.data)

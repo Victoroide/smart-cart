@@ -17,6 +17,8 @@ class ProductSerializer(serializers.ModelSerializer):
     warranty_id = serializers.PrimaryKeyRelatedField(queryset=Warranty.objects.all(), source='warranty', write_only=True, required=False, allow_null=True)
     
     stock = serializers.IntegerField(write_only=True, required=False)
+    average_rating = serializers.FloatField(read_only=True)
+    total_reviews = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Product
@@ -38,10 +40,12 @@ class ProductSerializer(serializers.ModelSerializer):
             'technical_specifications',
             'price_usd',
             'price_bs',
+            'average_rating',
+            'total_reviews'
             'created_at',
             'updated_at'
         ]
-        read_only_fields = ['id', 'uuid', 'created_at', 'updated_at', 'price_bs']
+        read_only_fields = ['id', 'uuid', 'created_at', 'updated_at', 'price_bs', 'average_rating', 'total_reviews']
     
     def get_warranty_name(self, obj):
         return obj.warranty.name if obj.warranty else None

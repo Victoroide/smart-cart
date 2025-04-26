@@ -2,6 +2,10 @@ from django.db import models
 from core.models import TimestampedModel
 from app.authentication.models import User
 from base.storage import PublicMediaStorage
+import os
+
+def report_file_path(instance, filename):
+    return os.path.join('reports', str(instance.user.id) if instance.user else 'anonymous', filename)
 
 class Report(TimestampedModel):
     REPORT_TYPES = (
@@ -34,4 +38,4 @@ class Report(TimestampedModel):
     report_data = models.JSONField(null=True, blank=True)
     
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.report_type})"

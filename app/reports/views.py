@@ -26,13 +26,36 @@ from .models import Report
 from .serializers import ReportSerializer, ReportCreateSerializer
 from app.orders.models import Order, OrderItem, Payment
 from app.products.models import Product, Inventory
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
 
 @extend_schema(tags=['Report'])
 class ReportView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPagination
 
+    @extend_schema(
+        summary='Get all reports',
+        description='Retrieves a paginated list of reports. Staff users can see all reports, while regular users only see their own reports.',
+        responses={
+            200: ReportSerializer(many=True),
+            500: OpenApiResponse(description='Server error'),
+        },
+        parameters=[
+            OpenApiParameter(
+                name='page', 
+                description='Page number for pagination',
+                required=False, 
+                type=int
+            ),
+            OpenApiParameter(
+                name='page_size', 
+                description='Number of items per page',
+                required=False,
+                type=int
+            )
+        ]
+    )
     def get(self, request):
         try:
             if not request.user.is_staff:
@@ -54,6 +77,86 @@ class ReportView(APIView):
             )
             return Response({"error": str(e)}, status=500)
 
+    @extend_schema(
+        summary='Create a new report',
+        description='Generates a new report based on the provided parameters. The report can be of different types and formats.',
+        request=ReportCreateSerializer,
+        responses={
+            200: ReportSerializer,
+            400: OpenApiResponse(description='Invalid input'),
+            500: OpenApiResponse(description='Server error'),
+        },
+        examples=[
+            OpenApiExample(
+                name='Sales by Customer Report',
+                summary='Generate a sales by customer report',
+                description='Creates a report showing sales data organized by customer',
+                value={
+                    "name": "Monthly Sales by Customer",
+                    "report_type": "sales_by_customer",
+                    "format": "pdf",
+                    "start_date": "2025-03-26",
+                    "end_date": "2025-04-26",
+                    "language": "en"
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name='Best Sellers Report',
+                summary='Generate a best sellers report',
+                description='Creates a report showing the best selling products',
+                value={
+                    "name": "Best Sellers Q1",
+                    "report_type": "best_sellers",
+                    "format": "excel",
+                    "start_date": "2025-01-01",
+                    "end_date": "2025-03-31",
+                    "language": "es"
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name='Sales by Period Report',
+                summary='Generate a sales by period report',
+                description='Creates a report showing sales data organized by time periods',
+                value={
+                    "name": "Weekly Sales Report",
+                    "report_type": "sales_by_period",
+                    "format": "pdf",
+                    "start_date": "2025-04-19",
+                    "end_date": "2025-04-26",
+                    "language": "en"
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name='Product Performance Report',
+                summary='Generate a product performance report',
+                description='Creates a report analyzing product performance including profit margins',
+                value={
+                    "name": "Product Performance Analysis",
+                    "report_type": "product_performance",
+                    "format": "excel",
+                    "start_date": "2025-03-01",
+                    "end_date": "2025-04-26",
+                    "language": "es"
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name='Inventory Status Report',
+                summary='Generate an inventory status report',
+                description='Creates a report showing current inventory levels and status',
+                value={
+                    "name": "Current Inventory Status",
+                    "report_type": "inventory_status",
+                    "format": "pdf",
+                    "language": "en"
+                },
+                request_only=True,
+            ),
+        ]
+    )
     def post(self, request):
         with transaction.atomic():
             try:

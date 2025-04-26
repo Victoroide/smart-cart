@@ -42,7 +42,10 @@ class OrderCreateSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
-        user = self.context['request'].user
+        user = validated_data.get('user', self.context['request'].user)
+    
+        if 'user' in validated_data:
+            validated_data.pop('user')
         
         validated_data['total_amount'] = 0
         

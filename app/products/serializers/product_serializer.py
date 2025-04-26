@@ -41,7 +41,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'price_usd',
             'price_bs',
             'average_rating',
-            'total_reviews'
+            'total_reviews',
             'created_at',
             'updated_at'
         ]

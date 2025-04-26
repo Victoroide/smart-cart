@@ -13,6 +13,25 @@ class WarrantyViewSet(viewsets.ModelViewSet):
     serializer_class = WarrantySerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     pagination_class = CustomPagination
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        
+        brand_id = request.query_params.get('brand')
+        if brand_id:
+            queryset = queryset.filter(brand_id=brand_id)
+            
+        brand_name = request.query_params.get('brand_name')
+        if brand_name:
+            queryset = queryset.filter(brand__name__icontains=brand_name)
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
     
     def create(self, request, *args, **kwargs):
         with transaction.atomic():

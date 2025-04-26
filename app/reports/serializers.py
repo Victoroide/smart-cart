@@ -31,15 +31,3 @@ class ReportCreateSerializer(serializers.ModelSerializer):
         if value not in allowed_formats:
             raise serializers.ValidationError(f"Format must be one of: {', '.join(allowed_formats)}")
         return value
-    
-    def validate(self, data):
-        report_type = data.get('report_type')
-        
-        if report_type != 'inventory_status':
-            if 'start_date' not in data and 'end_date' not in data:
-                raise serializers.ValidationError({
-                    "start_date": "At least start_date or end_date must be provided for this report type",
-                    "end_date": "At least start_date or end_date must be provided for this report type"
-                })
-        
-        return data

@@ -8,7 +8,9 @@ from app.authentication.models import CustomerLoyalty
 from app.authentication.serializers.customer_loyalty_serializer import CustomerLoyaltySerializer
 from services.discount_service import DiscountService
 from app.authentication.viewsets.user_viewset import IsAdminOrOwner
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['CustomerLoyalty'])
 class CustomerLoyaltyViewSet(viewsets.ModelViewSet):
     queryset = CustomerLoyalty.objects.all()
     serializer_class = CustomerLoyaltySerializer

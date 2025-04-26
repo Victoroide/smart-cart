@@ -5,7 +5,9 @@ from core.models import LoggerService
 from core.pagination import CustomPagination
 from app.chatbot.models import ChatbotMessage
 from app.chatbot.serializers import ChatbotMessageSerializer
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['ChatBotMessage'])
 class ChatbotMessageViewSet(viewsets.ModelViewSet):
     queryset = ChatbotMessage.objects.all()
     serializer_class = ChatbotMessageSerializer

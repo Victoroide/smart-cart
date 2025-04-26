@@ -6,7 +6,9 @@ from core.models import LoggerService
 from core.pagination import CustomPagination
 from app.orders.models import Order, Payment
 from app.orders.serializers import PaymentSerializer, PaymentCreateSerializer
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['Payment'])
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer

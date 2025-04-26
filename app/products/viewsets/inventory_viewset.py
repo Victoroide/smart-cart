@@ -6,7 +6,9 @@ from core.pagination import CustomPagination
 from django.db import transaction
 from app.products.models import Inventory
 from app.products.serializers import InventorySerializer
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['Inventory'])
 class InventoryViewSet(viewsets.ModelViewSet):
     queryset = Inventory.objects.all()
     serializer_class = InventorySerializer

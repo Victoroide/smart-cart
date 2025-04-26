@@ -5,7 +5,9 @@ from core.pagination import CustomPagination
 from django.db import transaction
 from app.products.models import Warranty
 from app.products.serializers import WarrantySerializer
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['Warranty'])
 class WarrantyViewSet(viewsets.ModelViewSet):
     queryset = Warranty.objects.filter(active=True)
     serializer_class = WarrantySerializer

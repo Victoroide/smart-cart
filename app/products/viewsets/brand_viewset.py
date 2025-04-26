@@ -8,7 +8,9 @@ from django.db import transaction
 from app.products.models import Brand
 from app.products.serializers import BrandSerializer
 from rest_framework.decorators import action
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['Brand'])
 class BrandViewSet(viewsets.ModelViewSet):
     queryset = Brand.objects.filter(active=True)
     serializer_class = BrandSerializer

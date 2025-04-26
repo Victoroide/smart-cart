@@ -6,6 +6,8 @@ from django.contrib.auth import get_user_model
 from core.models import LoggerService
 from core.pagination import CustomPagination
 from app.authentication.serializers import UserSerializer, ChangePasswordSerializer
+from drf_spectacular.utils import extend_schema
+
 
 User = get_user_model()
 
@@ -13,6 +15,7 @@ class IsAdminOrOwner(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         return request.user.is_staff or obj.id == request.user.id
 
+@extend_schema(tags=['User'])
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.filter(active=True)
     serializer_class = UserSerializer

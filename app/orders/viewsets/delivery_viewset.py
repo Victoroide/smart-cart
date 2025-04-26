@@ -5,7 +5,9 @@ from core.models import LoggerService
 from core.pagination import CustomPagination
 from app.orders.models import Delivery
 from app.orders.serializers import DeliverySerializer
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['Delivery'])
 class DeliveryViewSet(viewsets.ModelViewSet):
     queryset = Delivery.objects.all()
     serializer_class = DeliverySerializer

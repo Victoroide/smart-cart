@@ -6,7 +6,9 @@ from core.pagination import CustomPagination
 from app.orders.models import Order, OrderItem
 from app.orders.serializers import OrderItemSerializer, OrderItemCreateSerializer
 from app.products.models import Product, Inventory
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['OrderItem'])
 class OrderItemViewSet(viewsets.ModelViewSet):
     queryset = OrderItem.objects.all().order_by('-created_at')
     serializer_class = OrderItemSerializer

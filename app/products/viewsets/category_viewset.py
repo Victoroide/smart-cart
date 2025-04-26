@@ -7,7 +7,9 @@ from core.models import LoggerService
 from core.pagination import CustomPagination
 from app.products.models import ProductCategory
 from app.products.serializers import ProductCategorySerializer
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['ProductCategory'])
 class ProductCategoryViewSet(viewsets.ModelViewSet):
     queryset = ProductCategory.objects.filter(active=True)
     serializer_class = ProductCategorySerializer

@@ -2,7 +2,9 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from ..models import LoggerService
 from ..serializers import LoggerServiceSerializer
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['LoggerService'])
 class LoggerServiceViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = LoggerService.objects.all()
     serializer_class = LoggerServiceSerializer

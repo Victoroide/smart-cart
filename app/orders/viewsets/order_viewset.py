@@ -8,7 +8,9 @@ from app.orders.models import Order, OrderItem
 from app.orders.serializers import OrderSerializer, OrderCreateSerializer
 from services.discount_service import DiscountService
 from base import settings
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['Order'])
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.filter(active=True).order_by('-created_at')
     serializer_class = OrderSerializer

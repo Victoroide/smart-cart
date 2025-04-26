@@ -5,7 +5,9 @@ from base import settings
 from app.orders.models import Order, Payment
 import stripe
 import requests
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['Payment'])
 class PaymentStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     

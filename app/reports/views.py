@@ -26,7 +26,9 @@ from .models import Report
 from .serializers import ReportSerializer, ReportCreateSerializer
 from app.orders.models import Order, OrderItem, Payment
 from app.products.models import Product, Inventory
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['Report'])
 class ReportView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPagination

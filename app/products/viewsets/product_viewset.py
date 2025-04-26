@@ -13,7 +13,9 @@ from services.pinecone_service import PineconeService
 from services.recommendation_service import RecommendationService
 
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['Products'])
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.filter(active=True).order_by('-created_at')
     serializer_class = ProductSerializer

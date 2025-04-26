@@ -6,7 +6,9 @@ from app.orders.models import Order, Payment, OrderItem
 from core.models import LoggerService
 import stripe
 from django.db import transaction
+from drf_spectacular.utils import extend_schema
 
+@extend_schema(tags=['Payment'])
 class StripeCheckoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     

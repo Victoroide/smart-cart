@@ -3,12 +3,14 @@ from rest_framework.response import Response
 from ..models import LoggerService
 from ..serializers import LoggerServiceSerializer
 from drf_spectacular.utils import extend_schema
+from core.pagination import CustomPagination
 
 @extend_schema(tags=['LoggerService'])
 class LoggerServiceViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = LoggerService.objects.all()
     serializer_class = LoggerServiceSerializer
     permission_classes = [permissions.IsAdminUser]
+    pagination_class = CustomPagination
 
     def list(self, request, *args, **kwargs):
         try:

@@ -21,6 +21,17 @@ class PublicMediaStorage(S3Boto3Storage):
         super().__init__(*args, **kwargs)
         self.location = 'public/' + (custom_path + '/' if custom_path else '')
 
+    def _normalize_name(self, name):
+        name = name.replace('//', '/')
+        
+        if 'reports/reports' in name:
+            name = name.replace('reports/reports', 'reports')
+            
+        if name.startswith(f"{self.location}/"):
+            name = name[len(self.location)+1:]
+            
+        return super()._normalize_name(name)
+
 class PrivateMediaStorage(S3Boto3Storage):
     location = 'private'
     file_overwrite = False

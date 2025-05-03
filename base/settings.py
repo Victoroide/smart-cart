@@ -130,24 +130,29 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 if USE_S3:
+    # S3 settings
     AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
     AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
     AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='us-east-1')
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
     AWS_DEFAULT_ACL = None
-    AWS_S3_SIGNATURE_VERSION = 's3v4'
-    AWS_S3_FILE_OVERWRITE = False
     AWS_QUERYSTRING_AUTH = False
     
-    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/public/static/'
+    # Static files config
     STATICFILES_STORAGE = 'base.storage.StaticStorage'
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
+    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
+    
+    # Media files config
+    DEFAULT_FILE_STORAGE = 'base.storage.PublicMediaStorage'
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/public/'
 else:
     STATIC_URL = '/static/'
     MEDIA_URL = '/media/'
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
 
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')

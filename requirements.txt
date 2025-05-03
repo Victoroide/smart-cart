@@ -18,3 +18,5 @@ pinecone
 openai
 tiktoken
 stripe
+pandas
+xlsxwriter

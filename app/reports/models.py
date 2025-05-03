@@ -14,6 +14,7 @@ class Report(TimestampedModel):
         ('sales_by_period', 'Sales by Period'),
         ('product_performance', 'Product Performance'),
         ('inventory_status', 'Inventory Status'),
+        ('my_orders', 'My Orders')
     )
     
     LANGUAGE_CHOICES = (

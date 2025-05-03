@@ -21,7 +21,8 @@ class ReportCreateSerializer(serializers.ModelSerializer):
         ]
         
     def validate_report_type(self, value):
-        allowed_types = ['sales_by_customer', 'best_sellers', 'sales_by_period', 'product_performance', 'inventory_status']
+        allowed_types = ['sales_by_customer', 'best_sellers', 'sales_by_period', 
+                        'product_performance', 'inventory_status', 'my_orders']
         if value not in allowed_types:
             raise serializers.ValidationError(f"Report type must be one of: {', '.join(allowed_types)}")
         return value

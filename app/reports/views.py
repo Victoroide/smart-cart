@@ -5,6 +5,7 @@ from django.db import transaction
 from django.http import HttpResponse
 from datetime import datetime, timedelta
 from io import BytesIO
+import json
 import os
 from django.conf import settings
 from django.core.files.base import ContentFile
@@ -14,8 +15,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
-
-import openpyxl
+from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 
@@ -58,24 +58,19 @@ class ReportView(APIView):
     )
     def get(self, request):
         try:
-            if not request.user.is_staff:
-                reports = Report.objects.filter(user=request.user).order_by('-created_at')
-            else:
+            if request.user.is_staff:
                 reports = Report.objects.all().order_by('-created_at')
-                
-            paginator = self.pagination_class()
-            page = paginator.paginate_queryset(reports, request)
+            else:
+                reports = Report.objects.filter(user=request.user).order_by('-created_at')
             
-            serializer = ReportSerializer(page, many=True)
+            paginator = self.pagination_class()
+            paginated_reports = paginator.paginate_queryset(reports, request)
+            serializer = ReportSerializer(paginated_reports, many=True)
+            
             return paginator.get_paginated_response(serializer.data)
         except Exception as e:
-            LoggerService.objects.create(
-                user=request.user if request.user.is_authenticated else None,
-                action='ERROR',
-                table_name='Report',
-                description='Error on list reports: ' + str(e)
-            )
-            return Response({"error": str(e)}, status=500)
+            LoggerService.log_error(f"Error getting reports: {str(e)}")
+            return Response({"detail": "Error retrieving reports"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @extend_schema(
         summary='Create a new report',
@@ -155,61 +150,80 @@ class ReportView(APIView):
                 },
                 request_only=True,
             ),
+            OpenApiExample(
+                name='My Orders Report',
+                summary='Generate a personal orders report',
+                description='Creates a report showing all your orders with payment and delivery status',
+                value={
+                    "name": "My Purchase History",
+                    "report_type": "my_orders",
+                    "format": "pdf",
+                    "start_date": "2025-01-01",
+                    "end_date": "2025-04-30",
+                    "language": "en"
+                },
+                request_only=True,
+            ),
         ]
     )
     def post(self, request):
         with transaction.atomic():
             try:
+                # Ensure the user is authenticated
+                if not request.user.is_authenticated:
+                    return Response({"detail": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+                
                 serializer = ReportCreateSerializer(data=request.data)
                 if not serializer.is_valid():
                     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
                 
-                report_obj = serializer.save(user=request.user if request.user.is_authenticated else None)
+                report_obj = serializer.save(user=request.user)
                 
                 data = None
                 if report_obj.report_type == 'sales_by_customer':
+                    if not request.user.is_staff:
+                        return Response({"detail": "Staff permission required for this report type"}, status=status.HTTP_403_FORBIDDEN)
                     data = self.generate_sales_by_customer_data(report_obj)
                 elif report_obj.report_type == 'best_sellers':
+                    if not request.user.is_staff:
+                        return Response({"detail": "Staff permission required for this report type"}, status=status.HTTP_403_FORBIDDEN)
                     data = self.generate_best_sellers_data(report_obj)
                 elif report_obj.report_type == 'sales_by_period':
+                    if not request.user.is_staff:
+                        return Response({"detail": "Staff permission required for this report type"}, status=status.HTTP_403_FORBIDDEN)
                     data = self.generate_sales_by_period_data(report_obj)
                 elif report_obj.report_type == 'product_performance':
+                    if not request.user.is_staff:
+                        return Response({"detail": "Staff permission required for this report type"}, status=status.HTTP_403_FORBIDDEN)
                     data = self.generate_product_performance_data(report_obj)
                 elif report_obj.report_type == 'inventory_status':
+                    if not request.user.is_staff:
+                        return Response({"detail": "Staff permission required for this report type"}, status=status.HTTP_403_FORBIDDEN)
                     data = self.generate_inventory_status_data(report_obj)
+                elif report_obj.report_type == 'my_orders':
+                    data = self.generate_my_orders_data(report_obj)
                 else:
                     return Response({"detail": "Unknown report type"}, status=400)
                 
                 report_obj.report_data = data
                 
                 if report_obj.format == 'pdf':
-                    file_content = self.generate_pdf_content(report_obj)
-                    file_name = f"{report_obj.name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-                    report_obj.file_path.save(file_name, ContentFile(file_content))
+                    pdf_bytes = self.generate_pdf_content(report_obj)
+                    filename = f"{report_obj.report_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                    report_obj.file_path.save(filename, ContentFile(pdf_bytes))
+                    
                 elif report_obj.format == 'excel':
-                    file_content = self.generate_excel_content(report_obj)
-                    file_name = f"{report_obj.name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-                    report_obj.file_path.save(file_name, ContentFile(file_content))
+                    excel_bytes = self.generate_excel_content(report_obj)
+                    filename = f"{report_obj.report_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                    report_obj.file_path.save(filename, ContentFile(excel_bytes))
                 
                 report_obj.save()
                 
-                LoggerService.objects.create(
-                    user=request.user if request.user.is_authenticated else None,
-                    action='CREATE',
-                    table_name='Report',
-                    description=f'Created report {report_obj.id}'
-                )
-                
-                return Response(ReportSerializer(report_obj).data)
+                return Response(ReportSerializer(report_obj).data, status=status.HTTP_200_OK)
                 
             except Exception as e:
-                LoggerService.objects.create(
-                    user=request.user if request.user.is_authenticated else None,
-                    action='ERROR',
-                    table_name='Report',
-                    description='Error on create report: ' + str(e)
-                )
-                return Response({"error": str(e)}, status=500)
+                LoggerService.log_error(f"Error creating report: {str(e)}")
+                return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def get_translated_text(self, report, text_en):
         translations = {
@@ -231,6 +245,7 @@ class ReportView(APIView):
                 'Current Stock': 'Current Stock',
                 'Reorder Level': 'Reorder Level',
                 'Status': 'Status',
+                'Count': 'Count',
                 'Low Stock': 'Low Stock',
                 'In Stock': 'In Stock',
                 'Out of Stock': 'Out of Stock',
@@ -244,6 +259,22 @@ class ReportView(APIView):
                 'Sales by Period': 'Sales by Period',
                 'Product Performance': 'Product Performance',
                 'Inventory Status': 'Inventory Status',
+                'My Orders': 'My Orders',
+                'All Orders': 'All Orders',
+                'Payment Status': 'Payment Status',
+                'Delivery Status': 'Delivery Status',
+                'Pending': 'Pending',
+                'Processing': 'Processing',
+                'Completed': 'Completed',
+                'Failed': 'Failed',
+                'Refunded': 'Refunded',
+                'Shipped': 'Shipped',
+                'Out_for_delivery': 'Out for Delivery',
+                'Delivered': 'Delivered',
+                'Returned': 'Returned',
+                'Total Spent': 'Total Spent',
+                'Cost': 'Cost',
+                'SKU': 'SKU',
                 'USD': 'USD',
                 'BS': 'BS'
             },
@@ -265,6 +296,7 @@ class ReportView(APIView):
                 'Current Stock': 'Stock Actual',
                 'Reorder Level': 'Nivel de Reorden',
                 'Status': 'Estado',
+                'Count': 'Cantidad',
                 'Low Stock': 'Stock Bajo',
                 'In Stock': 'En Stock',
                 'Out of Stock': 'Agotado',
@@ -278,12 +310,28 @@ class ReportView(APIView):
                 'Sales by Period': 'Ventas por Período',
                 'Product Performance': 'Rendimiento de Productos',
                 'Inventory Status': 'Estado de Inventario',
+                'My Orders': 'Mis Órdenes',
+                'All Orders': 'Todas las Órdenes',
+                'Payment Status': 'Estado de Pago',
+                'Delivery Status': 'Estado de Entrega',
+                'Pending': 'Pendiente',
+                'Processing': 'Procesando',
+                'Completed': 'Completado',
+                'Failed': 'Fallido',
+                'Refunded': 'Reembolsado',
+                'Shipped': 'Enviado',
+                'Out_for_delivery': 'En reparto',
+                'Delivered': 'Entregado',
+                'Returned': 'Devuelto',
+                'Total Spent': 'Total Gastado',
+                'Cost': 'Costo',
+                'SKU': 'SKU',
                 'USD': 'USD',
                 'BS': 'Bs'
             }
         }
         
-        lang = report.language if report.language in translations else 'en'
+        lang = report.language if report and report.language in translations else 'en'
         return translations[lang].get(text_en, text_en)
         
     def generate_sales_by_customer_data(self, report):
@@ -307,20 +355,18 @@ class ReportView(APIView):
         customer_totals = {}
         
         for order in orders:
-            customer_name = order.user.email if order.user else 'Guest'
+            customer_name = f"{order.user.first_name} {order.user.last_name}" if order.user else "Guest"
             if customer_name not in customer_totals:
-                customer_totals[customer_name] = {'USD': 0, 'BS': 0}
+                customer_totals[customer_name] = {"USD": 0, "BS": 0}
                 
-            amount = float(order.total_amount)
-            currency = order.currency
-            customer_totals[customer_name][currency] += amount
+            customer_totals[customer_name][order.currency] += float(order.total_amount)
             
             rows.append({
                 headers[0]: order.id,
                 headers[1]: customer_name,
-                headers[2]: amount,
-                headers[3]: currency,
-                headers[4]: order.created_at.strftime('%Y-%m-%d %H:%M')
+                headers[2]: float(order.total_amount),
+                headers[3]: order.currency,
+                headers[4]: order.created_at.strftime('%Y-%m-%d')
             })
         
         summary = []
@@ -328,9 +374,9 @@ class ReportView(APIView):
             for currency, amount in totals.items():
                 if amount > 0:
                     summary.append({
-                        headers[1]: customer,
-                        headers[2]: amount,
-                        headers[3]: currency
+                        self.get_translated_text(report, 'Customer'): customer,
+                        self.get_translated_text(report, 'Total Amount'): amount,
+                        self.get_translated_text(report, 'Currency'): currency
                     })
             
         return {
@@ -352,7 +398,7 @@ class ReportView(APIView):
         
         order_ids = completed_orders.values_list('id', flat=True)
         
-        items = OrderItem.objects.filter(order_id__in=order_ids).select_related('order')
+        items = OrderItem.objects.filter(order_id__in=order_ids).select_related('order', 'product')
         
         headers = [
             self.get_translated_text(report, 'Product ID'),
@@ -365,19 +411,18 @@ class ReportView(APIView):
         product_stats = {}
         for item in items:
             product_id = item.product_id
+            product_name = item.product.name if item.product else f"Product {product_id}"
             currency = item.order.currency
             
             if product_id not in product_stats:
                 product_stats[product_id] = {
-                    'name': item.product.name,
+                    'name': product_name,
                     'quantity': 0,
-                    'USD': 0,
-                    'BS': 0
+                    'revenue': {"USD": 0, "BS": 0}
                 }
             
             product_stats[product_id]['quantity'] += item.quantity
-            revenue = float(item.unit_price * item.quantity)
-            product_stats[product_id][currency] += revenue
+            product_stats[product_id]['revenue'][currency] += float(item.price * item.quantity)
             
         sorted_products = sorted(
             product_stats.items(), 
@@ -387,23 +432,15 @@ class ReportView(APIView):
         
         rows = []
         for product_id, stats in sorted_products:
-            if stats['USD'] > 0:
-                rows.append({
-                    headers[0]: product_id,
-                    headers[1]: stats['name'],
-                    headers[2]: stats['quantity'],
-                    headers[3]: stats['USD'],
-                    headers[4]: 'USD'
-                })
-            
-            if stats['BS'] > 0:
-                rows.append({
-                    headers[0]: product_id,
-                    headers[1]: stats['name'],
-                    headers[2]: stats['quantity'],
-                    headers[3]: stats['BS'],
-                    headers[4]: 'BS'
-                })
+            for currency, amount in stats['revenue'].items():
+                if amount > 0:
+                    rows.append({
+                        headers[0]: product_id,
+                        headers[1]: stats['name'],
+                        headers[2]: stats['quantity'],
+                        headers[3]: amount,
+                        headers[4]: currency
+                    })
                 
         return {
             'title': self.get_translated_text(report, 'Best Sellers'),
@@ -430,26 +467,28 @@ class ReportView(APIView):
         
         daily_sales = {}
         for payment in payments:
-            date_str = payment.created_at.strftime('%Y-%m-%d')
-            currency = payment.order.currency
-            
+            if not payment.order:
+                continue
+                
+            date_str = payment.created_at.date().strftime('%Y-%m-%d')
             if date_str not in daily_sales:
                 daily_sales[date_str] = {
                     'USD': {'count': 0, 'total': 0},
                     'BS': {'count': 0, 'total': 0}
                 }
             
+            currency = payment.order.currency
             daily_sales[date_str][currency]['count'] += 1
             daily_sales[date_str][currency]['total'] += float(payment.amount)
             
         rows = []
         for date_str, currencies in sorted(daily_sales.items()):
-            for currency, stats in currencies.items():
-                if stats['count'] > 0:
+            for currency, data in currencies.items():
+                if data['count'] > 0:
                     rows.append({
                         headers[0]: date_str,
-                        headers[1]: stats['count'],
-                        headers[2]: stats['total'],
+                        headers[1]: data['count'],
+                        headers[2]: data['total'],
                         headers[3]: currency
                     })
                 
@@ -470,307 +509,440 @@ class ReportView(APIView):
         )
         
         order_ids = completed_orders.values_list('id', flat=True)
-        
-        items = OrderItem.objects.filter(order_id__in=order_ids).select_related('order', 'product')
+        items = OrderItem.objects.filter(order_id__in=order_ids).select_related('product', 'order')
         
         headers = [
+            self.get_translated_text(report, 'Product ID'),
             self.get_translated_text(report, 'Product Name'),
+            self.get_translated_text(report, 'SKU'),
             self.get_translated_text(report, 'Quantity Sold'),
             self.get_translated_text(report, 'Revenue'),
-            self.get_translated_text(report, 'Currency'),
+            self.get_translated_text(report, 'Cost'),
             self.get_translated_text(report, 'Profit'),
-            self.get_translated_text(report, 'Profit Margin')
+            self.get_translated_text(report, 'Profit Margin'),
+            self.get_translated_text(report, 'Currency')
         ]
         
-        product_stats = {}
+        product_performance = {}
+        
         for item in items:
+            if not item.product:
+                continue
+                
             product_id = item.product.id
             product_name = item.product.name
+            sku = item.product.sku
             currency = item.order.currency
+            cost = item.product.cost_price
+            sold_price = item.price
+            quantity = item.quantity
             
-            key = f"{product_id}_{currency}"
-            if key not in product_stats:
-                product_stats[key] = {
+            if product_id not in product_performance:
+                product_performance[product_id] = {
                     'name': product_name,
+                    'sku': sku,
                     'quantity': 0,
-                    'revenue': 0,
-                    'currency': currency,
-                    'profit': 0,
-                    'margin': 0
+                    'revenue': {"USD": 0, "BS": 0},
+                    'cost': {"USD": 0, "BS": 0},
+                    'profit': {"USD": 0, "BS": 0},
                 }
-                
-            product_stats[key]['quantity'] += item.quantity
-            revenue = float(item.unit_price * item.quantity)
-            product_stats[key]['revenue'] += revenue
             
-            cost = float(item.unit_price) * 0.7 * item.quantity
-            profit = revenue - cost
-            product_stats[key]['profit'] += profit
+            revenue = float(sold_price * quantity)
+            cost_total = float(cost * quantity if cost else 0)
+            profit = revenue - cost_total
             
-        for key, stats in product_stats.items():
-            if stats['revenue'] > 0:
-                stats['margin'] = (stats['profit'] / stats['revenue']) * 100
-            
-        sorted_products = sorted(
-            product_stats.items(), 
-            key=lambda x: x[1]['profit'], 
-            reverse=True
-        )
+            product_performance[product_id]['quantity'] += quantity
+            product_performance[product_id]['revenue'][currency] += revenue
+            product_performance[product_id]['cost'][currency] += cost_total
+            product_performance[product_id]['profit'][currency] += profit
         
         rows = []
-        for _, stats in sorted_products:
-            rows.append({
-                headers[0]: stats['name'],
-                headers[1]: stats['quantity'],
-                headers[2]: round(stats['revenue'], 2),
-                headers[3]: stats['currency'],
-                headers[4]: round(stats['profit'], 2),
-                headers[5]: f"{round(stats['margin'], 1)}%"
-            })
-                
+        for product_id, data in sorted(product_performance.items(), key=lambda x: sum(x[1]['profit'].values()), reverse=True):
+            for currency in ['USD', 'BS']:
+                if data['revenue'][currency] > 0:
+                    profit_margin = (data['profit'][currency] / data['revenue'][currency]) * 100 if data['revenue'][currency] > 0 else 0
+                    
+                    rows.append({
+                        headers[0]: product_id,
+                        headers[1]: data['name'],
+                        headers[2]: data['sku'],
+                        headers[3]: data['quantity'],
+                        headers[4]: data['revenue'][currency],
+                        headers[5]: data['cost'][currency],
+                        headers[6]: data['profit'][currency],
+                        headers[7]: f"{profit_margin:.2f}%",
+                        headers[8]: currency
+                    })
+        
         return {
             'title': self.get_translated_text(report, 'Product Performance'),
             'date_range': f"{start_date} - {end_date}",
             'headers': headers,
             'rows': rows
         }
-        
+
     def generate_inventory_status_data(self, report):
-        headers = [
-            self.get_translated_text(report, 'Product Name'),
-            self.get_translated_text(report, 'Current Stock'),
-            self.get_translated_text(report, 'Reorder Level'),
-            self.get_translated_text(report, 'Status'),
-            self.get_translated_text(report, 'Price USD'),
-            self.get_translated_text(report, 'Price BS')
-        ]
-        
         inventory_items = Inventory.objects.all().select_related('product')
         
+        headers = [
+            self.get_translated_text(report, 'Product ID'),
+            self.get_translated_text(report, 'Product Name'),
+            self.get_translated_text(report, 'SKU'),
+            self.get_translated_text(report, 'Current Stock'),
+            self.get_translated_text(report, 'Reorder Level'),
+            self.get_translated_text(report, 'Status')
+        ]
+        
         rows = []
-        for inv in inventory_items:
-            if not inv.product.active:
+        status_counts = {
+            'low_stock': 0,
+            'in_stock': 0,
+            'out_of_stock': 0
+        }
+        
+        for inventory in inventory_items:
+            if not inventory.product:
                 continue
                 
-            status = self.get_translated_text(report, 'In Stock')
-            if inv.stock <= 0:
+            current_stock = inventory.quantity
+            reorder_level = inventory.reorder_level or 10
+            
+            if current_stock <= 0:
                 status = self.get_translated_text(report, 'Out of Stock')
-            elif inv.stock < inv.reorder_level:
+                status_counts['out_of_stock'] += 1
+            elif current_stock <= reorder_level:
                 status = self.get_translated_text(report, 'Low Stock')
-                
+                status_counts['low_stock'] += 1
+            else:
+                status = self.get_translated_text(report, 'In Stock')
+                status_counts['in_stock'] += 1
+            
             rows.append({
-                headers[0]: inv.product.name,
-                headers[1]: inv.stock,
-                headers[2]: inv.reorder_level,
-                headers[3]: status,
-                headers[4]: f"${float(inv.product.price_usd)}",
-                headers[5]: f"Bs {float(inv.product.price_bs)}"
+                headers[0]: inventory.product.id,
+                headers[1]: inventory.product.name,
+                headers[2]: inventory.product.sku,
+                headers[3]: current_stock,
+                headers[4]: reorder_level,
+                headers[5]: status
             })
-                
+        
+        # Sort by remaining stock (ascending)
+        rows.sort(key=lambda x: x[headers[3]])
+        
+        summary = [
+            {
+                self.get_translated_text(report, 'Status'): self.get_translated_text(report, 'Out of Stock'),
+                self.get_translated_text(report, 'Count'): status_counts['out_of_stock']
+            },
+            {
+                self.get_translated_text(report, 'Status'): self.get_translated_text(report, 'Low Stock'),
+                self.get_translated_text(report, 'Count'): status_counts['low_stock']
+            },
+            {
+                self.get_translated_text(report, 'Status'): self.get_translated_text(report, 'In Stock'),
+                self.get_translated_text(report, 'Count'): status_counts['in_stock']
+            }
+        ]
+        
         return {
             'title': self.get_translated_text(report, 'Inventory Status'),
-            'date_range': datetime.now().strftime('%Y-%m-%d'),
             'headers': headers,
-            'rows': rows
+            'rows': rows,
+            'summary': summary
         }
 
+    def generate_my_orders_data(self, report):
+        start_date = report.start_date or (datetime.now() - timedelta(days=90)).date()
+        end_date = report.end_date or datetime.now().date()
+        
+        # Check if user is admin to show all orders or just user's orders
+        if report.user.is_staff:
+            orders = Order.objects.filter(
+                created_at__date__range=[start_date, end_date],
+            ).select_related('payment', 'user').order_by('-created_at')
+            title = self.get_translated_text(report, 'All Orders')
+        else:
+            orders = Order.objects.filter(
+                user=report.user,
+                created_at__date__range=[start_date, end_date],
+            ).select_related('payment').order_by('-created_at')
+            title = self.get_translated_text(report, 'My Orders')
+        
+        headers = [
+            self.get_translated_text(report, 'Order ID'),
+            self.get_translated_text(report, 'Date'),
+        ]
+        
+        # Add Customer column only for admin reports
+        if report.user.is_staff:
+            headers.insert(1, self.get_translated_text(report, 'Customer'))
+            
+        headers.extend([
+            self.get_translated_text(report, 'Total Amount'),
+            self.get_translated_text(report, 'Currency'),
+            self.get_translated_text(report, 'Payment Status'),
+            self.get_translated_text(report, 'Delivery Status')
+        ])
+        
+        rows = []
+        total_by_currency = {'USD': 0, 'BS': 0}
+        customer_totals = {}
+        
+        for order in orders:
+            payment_status = 'pending'
+            delivery_status = 'pending'
+            
+            if hasattr(order, 'payment'):
+                payment_status = order.payment.payment_status
+                
+            if hasattr(order, 'delivery'):
+                delivery_status = order.delivery.delivery_status
+            
+            row_data = {
+                headers[0]: order.id,
+                headers[-5]: order.created_at.strftime('%Y-%m-%d %H:%M'),
+                headers[-4]: float(order.total_amount),
+                headers[-3]: order.currency,
+                headers[-2]: self.get_translated_text(report, payment_status.capitalize()),
+                headers[-1]: self.get_translated_text(report, delivery_status.capitalize())
+            }
+            
+            # Add customer info for admin reports
+            if report.user.is_staff:
+                customer_name = f"{order.user.first_name} {order.user.last_name}" if order.user else "Guest"
+                row_data[headers[1]] = customer_name
+                
+                # Track totals by customer for admin
+                if customer_name not in customer_totals:
+                    customer_totals[customer_name] = {"USD": 0, "BS": 0}
+                
+                if hasattr(order, 'payment') and order.payment.payment_status == 'completed':
+                    customer_totals[customer_name][order.currency] += float(order.total_amount)
+            
+            rows.append(row_data)
+            
+            if hasattr(order, 'payment') and order.payment.payment_status == 'completed':
+                total_by_currency[order.currency] += float(order.total_amount)
+        
+        summary = []
+        
+        # Add customer breakdown for admin reports
+        if report.user.is_staff and customer_totals:
+            for customer, totals in sorted(customer_totals.items(), key=lambda x: sum(x[1].values()), reverse=True):
+                for currency, amount in totals.items():
+                    if amount > 0:
+                        summary.append({
+                            self.get_translated_text(report, 'Customer'): customer,
+                            self.get_translated_text(report, 'Total Amount'): amount,
+                            self.get_translated_text(report, 'Currency'): currency
+                        })
+        
+        # Add overall total
+        for currency, total in total_by_currency.items():
+            if total > 0:
+                summary.append({
+                    self.get_translated_text(report, 'Currency'): currency,
+                    self.get_translated_text(report, 'Total Spent'): total
+                })
+        
+        return {
+            'title': title,
+            'date_range': f"{start_date} - {end_date}",
+            'headers': headers,
+            'rows': rows,
+            'summary': summary
+        }
+        
     def generate_pdf_content(self, report_obj):
         buffer = BytesIO()
-        
-        doc = SimpleDocTemplate(
-            buffer, 
-            pagesize=letter,
-            rightMargin=72, 
-            leftMargin=72,
-            topMargin=72, 
-            bottomMargin=72
-        )
-        
-        styles = getSampleStyleSheet()
-        title_style = styles['Heading1']
-        subtitle_style = styles['Heading2']
-        normal_style = styles['Normal']
-        
+        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=72)
         elements = []
         
-        report_data = report_obj.report_data
-        if not report_data:
-            return None
+        styles = getSampleStyleSheet()
+        title_style = styles["Heading1"]
+        subtitle_style = styles["Heading2"]
+        normal_style = styles["Normal"]
         
-        elements.append(Paragraph(report_data['title'], title_style))
+        # Title
+        title = report_obj.report_data.get('title', report_obj.name)
+        elements.append(Paragraph(title, title_style))
         elements.append(Spacer(1, 12))
         
-        report_date = datetime.now().strftime('%Y-%m-%d %H:%M')
-        translator = lambda text: self.get_translated_text(report_obj, text)
-        elements.append(Paragraph(f"{translator('Report Date')}: {report_date}", normal_style))
-        elements.append(Paragraph(f"{translator('Date Range')}: {report_data['date_range']}", normal_style))
-        elements.append(Paragraph(f"{translator('Generated by')}: {report_obj.user.email if report_obj.user else 'System'}", normal_style))
-        elements.append(Spacer(1, 24))
+        # Date range if available
+        date_range = report_obj.report_data.get('date_range')
+        if date_range:
+            date_subtitle = f"{self.get_translated_text(report_obj, 'Date Range')}: {date_range}"
+            elements.append(Paragraph(date_subtitle, subtitle_style))
+            elements.append(Spacer(1, 12))
         
-        if 'rows' in report_data and report_data['rows']:
-            headers = report_data['headers']
+        # Report data
+        headers = report_obj.report_data.get('headers', [])
+        rows = report_obj.report_data.get('rows', [])
+        
+        if headers and rows:
+            # Convert dict rows to lists in the correct header order
             data = [headers]
-            
-            for row in report_data['rows']:
-                data_row = []
-                for h in headers:
-                    value = row.get(h, '')
-                    if isinstance(value, float) and 'Amount' in h or 'Revenue' in h or 'Profit' in h:
-                        currency = row.get('Currency', '')
-                        if currency:
-                            value = f"{value} {currency}"
-                    data_row.append(value)
-                data.append(data_row)
+            for row_dict in rows:
+                data.append([row_dict.get(h, "") for h in headers])
             
             table = Table(data, repeatRows=1)
-            
-            table_style = TableStyle([
+            table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, 0), 12),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
                 ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ])
-            table.setStyle(table_style)
-            
+            ]))
             elements.append(table)
             elements.append(Spacer(1, 24))
-            
-        if 'summary' in report_data and report_data['summary']:
-            elements.append(Paragraph(translator('Summary'), subtitle_style))
+        
+        # Summary if available
+        summary = report_obj.report_data.get('summary', [])
+        if summary:
+            elements.append(Paragraph(self.get_translated_text(report_obj, 'Summary'), subtitle_style))
             elements.append(Spacer(1, 12))
             
-            summary_data = []
-            for item in report_data['summary']:
-                row = []
-                for key, value in item.items():
-                    if isinstance(value, float) and ('Amount' in key or 'Revenue' in key):
-                        currency = item.get('Currency', '')
-                        if currency:
-                            value = f"{value} {currency}"
-                    row.append(value)
-                summary_data.append(row)
-                
-            if summary_data:
-                summary_table = Table(summary_data)
-                
-                summary_style = TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                    ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ])
-                summary_table.setStyle(summary_style)
-                
-                elements.append(summary_table)
+            # Get all unique keys from the summary
+            summary_headers = set()
+            for item in summary:
+                summary_headers.update(item.keys())
+            summary_headers = list(summary_headers)
+            
+            summary_data = [summary_headers]
+            for item in summary:
+                summary_data.append([item.get(h, "") for h in summary_headers])
+            
+            summary_table = Table(summary_data, repeatRows=1)
+            summary_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ]))
+            elements.append(summary_table)
         
-        doc.build(
-            elements, 
-            onFirstPage=self._header_footer, 
-            onLaterPages=self._header_footer
-        )
+        # Footer info
+        elements.append(Spacer(1, 48))
+        footer_text = f"{self.get_translated_text(report_obj, 'Report Date')}: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        if report_obj.user:
+            footer_text += f", {self.get_translated_text(report_obj, 'Generated by')}: {report_obj.user.first_name} {report_obj.user.last_name}"
+        elements.append(Paragraph(footer_text, normal_style))
         
-        buffer.seek(0)
-        return buffer.getvalue()
+        doc.build(elements, onFirstPage=self._header_footer, onLaterPages=self._header_footer)
+        
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        
+        return pdf_bytes
     
     def _header_footer(self, canvas, doc):
         canvas.saveState()
         
-        page_num = canvas.getPageNumber()
-        footer_text = f"Page {page_num}"
-        canvas.setFont('Helvetica', 8)
-        canvas.drawRightString(
-            letter[0] - 72, 
-            72/2, 
-            footer_text
-        )
+        # Header
+        header_text = "FICCT E-Commerce"
+        canvas.setFont('Helvetica-Bold', 16)
+        canvas.drawString(72, 800, header_text)
+        
+        # Footer with page number
+        canvas.setFont('Helvetica', 9)
+        page_text = f"{self.get_translated_text(None, 'Page')} {doc.page}"
+        canvas.drawString(72, 30, page_text)
         
         canvas.restoreState()
         
     def generate_excel_content(self, report_obj):
-        report_data = report_obj.report_data
-        if not report_data:
-            return None
+        wb = Workbook()
+        ws = wb.active
+        ws.title = report_obj.report_type[:31]  # Excel sheet names must be <= 31 chars
         
-        workbook = openpyxl.Workbook()
-        sheet = workbook.active
-        sheet.title = "Report"
+        # Title
+        ws['A1'] = report_obj.report_data.get('title', report_obj.name)
+        ws.merge_cells('A1:E1')
+        title_cell = ws['A1']
+        title_cell.font = Font(size=16, bold=True)
         
-        translator = lambda text: self.get_translated_text(report_obj, text)
+        # Date range if available
+        date_range = report_obj.report_data.get('date_range')
+        if date_range:
+            ws['A2'] = f"{self.get_translated_text(report_obj, 'Date Range')}: {date_range}"
+            ws.merge_cells('A2:E2')
         
-        sheet['A1'] = report_data['title']
-        sheet['A1'].font = Font(size=16, bold=True)
-        sheet.merge_cells('A1:E1')
+        # Report data
+        headers = report_obj.report_data.get('headers', [])
+        rows = report_obj.report_data.get('rows', [])
         
-        report_date = datetime.now().strftime('%Y-%m-%d %H:%M')
-        sheet['A3'] = f"{translator('Report Date')}:"
-        sheet['B3'] = report_date
-        sheet['A4'] = f"{translator('Date Range')}:"
-        sheet['B4'] = report_data['date_range']
-        sheet['A5'] = f"{translator('Generated by')}:"
-        sheet['B5'] = report_obj.user.email if report_obj.user else 'System'
+        # Starting row for headers
+        row_idx = 4
         
-        for cell in [sheet['A3'], sheet['A4'], sheet['A5']]:
-            cell.font = Font(bold=True)
-        
-        if 'rows' in report_data and report_data['rows']:
-            row_num = 7
-            
-            headers = report_data['headers']
-            for col_num, header in enumerate(headers, 1):
-                cell = sheet.cell(row=row_num, column=col_num, value=header)
+        if headers and rows:
+            # Add headers
+            for col_idx, header in enumerate(headers, 1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=header)
                 cell.font = Font(bold=True)
                 cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
                 
-                sheet.column_dimensions[get_column_letter(col_num)].width = max(15, len(str(header)) + 2)
+            # Add data rows
+            for row_data in rows:
+                row_idx += 1
+                for col_idx, header in enumerate(headers, 1):
+                    ws.cell(row=row_idx, column=col_idx, value=row_data.get(header, ""))
+        
+        # Summary if available
+        summary = report_obj.report_data.get('summary', [])
+        if summary:
+            row_idx += 2
+            ws.cell(row=row_idx, column=1, value=self.get_translated_text(report_obj, 'Summary'))
+            ws.cell(row=row_idx, column=1).font = Font(size=14, bold=True)
+            row_idx += 1
             
-            for row in report_data['rows']:
-                row_num += 1
-                for col_num, header in enumerate(headers, 1):
-                    value = row.get(header, '')
-                    
-                    if isinstance(value, float) and ('Amount' in header or 'Revenue' in header or 'Profit' in header):
-                        cell = sheet.cell(row=row_num, column=col_num, value=value)
-                        cell.number_format = '#,##0.00'
-                        
-                        currency_col = None
-                        for i, h in enumerate(headers, 1):
-                            if h == 'Currency':
-                                currency_col = i
-                                break
-                        
-                        if currency_col:
-                            sheet.cell(row=row_num, column=col_num).comment = openpyxl.comments.Comment(
-                                f"Currency: {row.get('Currency', '')}", "Report System")
-                    else:
-                        sheet.cell(row=row_num, column=col_num, value=value)
+            # Get all unique keys from the summary
+            summary_headers = set()
+            for item in summary:
+                summary_headers.update(item.keys())
+            summary_headers = list(summary_headers)
             
-            if 'summary' in report_data and report_data['summary']:
-                row_num += 2
-                sheet.cell(row=row_num, column=1, value=translator('Summary')).font = Font(bold=True)
+            # Add summary headers
+            for col_idx, header in enumerate(summary_headers, 1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=header)
+                cell.font = Font(bold=True)
+                cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
                 
-                row_num += 1
-                for item in report_data['summary']:
-                    col_num = 1
-                    for key, value in item.items():
-                        if isinstance(value, float) and ('Amount' in key or 'Revenue' in key):
-                            cell = sheet.cell(row=row_num, column=col_num, value=value)
-                            cell.number_format = '#,##0.00'
-                            
-                            if 'Currency' in item:
-                                cell.comment = openpyxl.comments.Comment(
-                                    f"Currency: {item['Currency']}", "Report System")
-                        else:
-                            sheet.cell(row=row_num, column=col_num, value=value)
-                        col_num += 1
-                    row_num += 1
+            # Add summary data
+            for item in summary:
+                row_idx += 1
+                for col_idx, header in enumerate(summary_headers, 1):
+                    ws.cell(row=row_idx, column=col_idx, value=item.get(header, ""))
         
-        excel_file = BytesIO()
-        workbook.save(excel_file)
-        excel_file.seek(0)
+        # Footer info
+        row_idx += 2
+        footer_text = f"{self.get_translated_text(report_obj, 'Report Date')}: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        if report_obj.user:
+            footer_text += f", {self.get_translated_text(report_obj, 'Generated by')}: {report_obj.user.first_name} {report_obj.user.last_name}"
+        ws.cell(row=row_idx, column=1, value=footer_text)
         
-        return excel_file.getvalue()
+        # Auto-adjust column widths
+        for column in ws.columns:
+            max_length = 0
+            column_letter = get_column_letter(column[0].column)
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 2)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        buffer = BytesIO()
+        wb.save(buffer)
+        excel_bytes = buffer.getvalue()
+        buffer.close()
+        
+        return excel_bytes

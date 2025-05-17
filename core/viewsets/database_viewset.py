@@ -44,32 +44,26 @@ class DatabaseBackupRestoreView(APIView):
         pg_binary = shutil.which(binary_name)
         if pg_binary:
             return pg_binary
-            
+
         if platform.system() == 'Windows':
             possible_paths = []
-            
             for version in range(10, 21):
                 possible_paths.append(f"C:\\Program Files\\PostgreSQL\\{version}\\bin\\{binary_name}.exe")
-            
             for major in range(10, 21):
                 for minor in range(0, 11):
                     possible_paths.append(f"C:\\Program Files\\PostgreSQL\\{major}.{minor}\\bin\\{binary_name}.exe")
-            
             possible_paths.extend([
                 f"C:\\Program Files\\PostgreSQL\\bin\\{binary_name}.exe",
                 f"C:\\PostgreSQL\\bin\\{binary_name}.exe",
                 f"C:\\Program Files (x86)\\PostgreSQL\\bin\\{binary_name}.exe",
                 f"C:\\Program Files\\EnterpriseDB\\PostgreSQL\\bin\\{binary_name}.exe"
             ])
-                
             for path in possible_paths:
                 if os.path.isfile(path):
                     return path
-        
-        if platform.system() == 'Windows':
             return None
-            
-        return binary_name
+        else:
+            return None
     
     @extend_schema(
         tags=['Database'],
@@ -101,7 +95,7 @@ class DatabaseBackupRestoreView(APIView):
                 return Response(
                     {
                         'error': 'PostgreSQL pg_dump utility not found',
-                        'details': 'Please install PostgreSQL client tools. Download from https://www.postgresql.org/download/'
+                        'details': 'Asegúrate de que pg_dump esté instalado y en el PATH del sistema en el servidor. Para Railway, revisa tu configuración de Nixpacks o Dockerfile para incluir las utilidades cliente de PostgreSQL.'
                     },
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
@@ -460,32 +454,26 @@ class DatabaseRestoreView(APIView):
         pg_binary = shutil.which(binary_name)
         if pg_binary:
             return pg_binary
-            
+
         if platform.system() == 'Windows':
             possible_paths = []
-            
             for version in range(10, 21):
                 possible_paths.append(f"C:\\Program Files\\PostgreSQL\\{version}\\bin\\{binary_name}.exe")
-            
             for major in range(10, 21):
                 for minor in range(0, 11):
                     possible_paths.append(f"C:\\Program Files\\PostgreSQL\\{major}.{minor}\\bin\\{binary_name}.exe")
-            
             possible_paths.extend([
                 f"C:\\Program Files\\PostgreSQL\\bin\\{binary_name}.exe",
                 f"C:\\PostgreSQL\\bin\\{binary_name}.exe",
                 f"C:\\Program Files (x86)\\PostgreSQL\\bin\\{binary_name}.exe",
                 f"C:\\Program Files\\EnterpriseDB\\PostgreSQL\\bin\\{binary_name}.exe"
             ])
-                
             for path in possible_paths:
                 if os.path.isfile(path):
                     return path
-        
-        if platform.system() == 'Windows':
             return None
-            
-        return binary_name
+        else:
+            return None
     
     @extend_schema(
         tags=['Database'],
@@ -529,7 +517,7 @@ class DatabaseRestoreView(APIView):
                 return Response(
                     {
                         'error': 'PostgreSQL psql utility not found',
-                        'details': 'Please install PostgreSQL client tools. Download from https://www.postgresql.org/download/'
+                        'details': 'Asegúrate de que psql esté instalado y en el PATH del sistema en el servidor. Para Railway, revisa tu configuración de Nixpacks o Dockerfile para incluir las utilidades cliente de PostgreSQL.'
                     },
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
@@ -667,7 +655,7 @@ class DatabaseRestoreView(APIView):
                 return Response(
                     {
                         'error': 'PostgreSQL psql utility not found',
-                        'details': 'Please install PostgreSQL client tools. Download from https://www.postgresql.org/download/'
+                        'details': 'Asegúrate de que psql esté instalado y en el PATH del sistema en el servidor. Para Railway, revisa tu configuración de Nixpacks o Dockerfile para incluir las utilidades cliente de PostgreSQL.'
                     },
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )

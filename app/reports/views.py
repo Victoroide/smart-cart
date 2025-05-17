@@ -479,7 +479,7 @@ class ReportView(APIView):
             if not item.product:
                 continue
                 
-            product_id = item.product_id
+            product_id = item.product.id
             product_name = item.product.name
             currency = item.order.currency
             
@@ -492,12 +492,14 @@ class ReportView(APIView):
             
             product_stats[product_id]['quantity'] += item.quantity
             
-            total_price = getattr(item, 'total_price', None)
-            if total_price is None and hasattr(item.product, 'price'):
-                total_price = item.product.price * item.quantity
-            elif total_price is None:
-                total_price = 0
-                
+            unit_price = 0
+            if hasattr(item, 'unit_price') and item.unit_price:
+                unit_price = item.unit_price
+            elif hasattr(item.product, 'price') and item.product.price:
+                unit_price = item.product.price
+            
+            total_price = unit_price * item.quantity
+            
             product_stats[product_id]['revenue'][currency] += float(total_price)
         
         sorted_products = sorted(
@@ -508,13 +510,26 @@ class ReportView(APIView):
         
         rows = []
         for product_id, stats in sorted_products:
-            for currency in ['USD', 'BS']:
-                if stats['revenue'][currency] > 0:
+            if stats['quantity'] > 0:
+                for currency in ['USD', 'BS']:
+                    if stats['revenue'][currency] > 0:
+                        rows.append({
+                            headers[0]: product_id,
+                            headers[1]: stats['name'],
+                            headers[2]: stats['quantity'],
+                            headers[3]: stats['revenue'][currency],
+                            headers[4]: currency
+                        })
+        
+        if not rows and sorted_products:
+            for product_id, stats in sorted_products[:10]:
+                if stats['quantity'] > 0:
+                    currency = 'USD'
                     rows.append({
                         headers[0]: product_id,
                         headers[1]: stats['name'],
                         headers[2]: stats['quantity'],
-                        headers[3]: stats['revenue'][currency],
+                        headers[3]: 0,
                         headers[4]: currency
                     })
         

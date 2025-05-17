@@ -1,12 +1,10 @@
 from rest_framework import serializers
 from django.utils.translation import gettext_lazy as _
 from .models import Report
-# Asegúrate de que User esté importado si es necesario, o usa settings.AUTH_USER_MODEL
-# from app.authentication.models import User 
+from app.authentication.models import User 
 
 class ReportSerializer(serializers.ModelSerializer):
     file_path = serializers.SerializerMethodField()
-    user = serializers.StringRelatedField()
 
     class Meta:
         model = Report

@@ -4,12 +4,12 @@ services:
   web:
     build: .
     container_name: smartcart-web
-    command: gunicorn base.wsgi:application --bind 0.0.0.0:8000
+    command: gunicorn base.wsgi:application --bind 0.0.0.0:8080
     env_file:
       - .env
     volumes:
       - .:/app
     ports:
-      - "8000:8000"
+      - "8000:8080"
     environment:
-      - PORT=8000
+      - PORT=8080

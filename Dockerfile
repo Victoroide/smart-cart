@@ -21,5 +21,4 @@ RUN mkdir -p /app/staticfiles/drf_spectacular_sidecar/swagger-ui-dist
 
 RUN dos2unix entrypoint.sh && chmod +x entrypoint.sh
 
-# Use the entrypoint.sh instead of directly running Django
-CMD ["bash", "./entrypoint.sh"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

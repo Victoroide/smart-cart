@@ -110,8 +110,7 @@ DATABASES = {
         'HOST': tmpPostgres.hostname,
         'PORT': 5432,
         'OPTIONS': {
-            'sslmode': 'require',
-            'options': '-c search_path=public'
+            'sslmode': 'require'
         }
     }
 }

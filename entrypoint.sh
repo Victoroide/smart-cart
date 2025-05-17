@@ -3,30 +3,28 @@ set -e
 
 echo "=== Starting entrypoint.sh ==="
 
-# Multiple possible directories (esto parece ser para drf-spectacular, mantenlo si es necesario)
-mkdir -p /app/static
-mkdir -p /app/staticfiles/drf_spectacular_sidecar/swagger-ui-dist
-mkdir -p /tmp/staticfiles/drf_spectacular_sidecar/swagger-ui-dist
+mkdir -p /static
+mkdir -p /staticfiles
+mkdir -p /mediafiles
+mkdir -p /staticfiles/drf_spectacular_sidecar/swagger-ui-dist
 
-echo "Extracting Spectacular static files..."
-python extract_spectacular_static.py
+echo "Running Django management commands..."
 
 echo "Collecting static files..."
-python manage.py collectstatic --noinput
+python manage.py collectstatic --noinput --clear
 
 echo "Applying database migrations..."
 python manage.py migrate --noinput
 
-# Make files accessible in all locations (esto parece ser para drf-spectacular)
-cp -r /app/staticfiles/drf_spectacular_sidecar/swagger-ui-dist/* /tmp/staticfiles/drf_spectacular_sidecar/swagger-ui-dist/ || echo "Copy failed, continuing anyway"
+echo "Extracting Spectacular static files (if applicable)..."
+python extract_spectacular_static.py || echo "extract_spectacular_static.py not found or failed, continuing..."
 
-# Debug info
-echo "Contents of staticfiles directories:"
-find /app/staticfiles -type f | grep swagger
-find /tmp/staticfiles -type f | grep swagger 2>/dev/null || echo "No files in /tmp/staticfiles"
-
-# Make directories readable
-chmod -R 755 /app/staticfiles
-
-echo "Starting Gunicorn..."
-exec gunicorn base.wsgi:application --log-level debug --workers 2 --timeout 120 --access-logfile - --error-logfile - --bind 0.0.0.0:$PORT
+echo "Starting Gunicorn server..."
+exec gunicorn base.wsgi:application \
+    --name ficct-ecommerce-app \
+    --bind 0.0.0.0:$PORT \
+    --workers 2 \
+    --timeout 120 \
+    --log-level debug \
+    --access-logfile '-' \
+    --error-logfile '-'

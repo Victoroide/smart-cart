@@ -27,6 +27,7 @@ class Report(TimestampedModel):
         ('json', 'JSON'),
         ('pdf', 'PDF'),
         ('excel', 'Excel'),
+        ('html', 'HTML'),
     )
     
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)

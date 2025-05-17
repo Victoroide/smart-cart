@@ -1,48 +1,79 @@
 from rest_framework import serializers
+from django.utils.translation import gettext_lazy as _
 from .models import Report
-from drf_spectacular.utils import extend_schema_field, OpenApiExample
+# Asegúrate de que User esté importado si es necesario, o usa settings.AUTH_USER_MODEL
+# from app.authentication.models import User 
 
 class ReportSerializer(serializers.ModelSerializer):
+    file_path = serializers.SerializerMethodField()
+    user = serializers.StringRelatedField()
+
     class Meta:
         model = Report
         fields = [
-            'id', 'name', 'report_type', 'format',
-            'start_date', 'end_date', 'language', 'report_data', 'file_path',
-            'user', 'created_at', 'updated_at'
+            'id', 
+            'user', 
+            'name', 
+            'report_type', 
+            'language', 
+            'format', 
+            'start_date', 
+            'end_date', 
+            'file_path', 
+            'report_data', 
+            'created_at', 
+            'updated_at'
         ]
-        read_only_fields = ['id', 'report_data', 'file_path', 'user', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'file_path', 'report_data', 'created_at', 'updated_at']
+    
+    def get_file_path(self, obj):
+        if obj.file_path:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file_path.url)
+        return None
 
 class ReportCreateSerializer(serializers.ModelSerializer):
-    order_id = serializers.IntegerField(required=False, write_only=True)
-    
+    order_id = serializers.IntegerField(required=False, write_only=True, help_text=_("Required if report_type is 'order_receipt'."))
+
     class Meta:
         model = Report
         fields = [
-            'name', 'report_type', 'format',
-            'start_date', 'end_date', 'language', 'order_id'
+            'name', 
+            'report_type', 
+            'language', 
+            'format', 
+            'start_date', 
+            'end_date',
+            'order_id' 
         ]
-        
+
     def validate(self, data):
-        if data.get('report_type') == 'order_receipt' and not data.get('order_id'):
-            raise serializers.ValidationError({"order_id": "Order ID is required for order receipt reports"})
+        report_type = data.get('report_type')
+        order_id = data.get('order_id')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+
+        if report_type == 'order_receipt' and not order_id:
+            raise serializers.ValidationError(_("Order ID is required for 'order_receipt' report type."))
+        
+        optional_date_reports = ['inventory_status', 'order_receipt']
+        
+        if report_type not in optional_date_reports:
+            if not start_date:
+                raise serializers.ValidationError({ "start_date": _("Start date is required for this report type.")})
+            if not end_date:
+                raise serializers.ValidationError({ "end_date": _("End date is required for this report type.")})
+
+        if start_date and end_date and start_date > end_date:
+            raise serializers.ValidationError(_("Start date cannot be after end date."))
+            
         return data
     
-    def validate_report_type(self, value):
-        allowed_types = ['sales_by_customer', 'best_sellers', 'sales_by_period', 
-                         'product_performance', 'inventory_status', 'my_orders',
-                         'order_receipt']
-        if value not in allowed_types:
-            raise serializers.ValidationError(f"Report type must be one of: {', '.join(allowed_types)}")
-        return value
-    
-    def validate_format(self, value):
-        allowed_formats = ['json', 'pdf', 'excel']
-        if value not in allowed_formats:
-            raise serializers.ValidationError(f"Format must be one of: {', '.join(allowed_formats)}")
-        return value
-        
     def create(self, validated_data):
-        order_id = validated_data.pop('order_id', None)
-        instance = Report.objects.create(**validated_data)
+        user = self.context['request'].user
         
-        return instance
+        validated_data.pop('order_id', None) 
+        
+        report = Report.objects.create(user=user, **validated_data)
+        return report

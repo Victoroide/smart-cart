@@ -1,2 +1,4 @@
 from app.authentication.models.user_model import User, UserManager
 from app.authentication.models.customer_loyalty_model import CustomerLoyalty
+from app.authentication.models.delivery_profile_model import DeliveryProfile
+from app.authentication.models.delivery_assignment_model import DeliveryAssignment

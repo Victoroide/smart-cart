@@ -33,6 +33,7 @@ class User(AbstractUser, TimestampedModel):
     ROLES = [
         ('admin', 'Admin'),
         ('customer', 'Customer'),
+        ('delivery', 'Delivery'),
     ]
     
     username = None
@@ -52,10 +53,14 @@ class User(AbstractUser, TimestampedModel):
         if self.role == 'admin':
             self.is_staff = True
             self.is_superuser = True
-        elif self.role == 'customer':
+        elif self.role in ['customer', 'delivery']:
             self.is_staff = False
             self.is_superuser = False
         
         self.is_active = self.active
             
         super().save(*args, **kwargs)
+    
+    @property
+    def is_delivery(self):
+        return self.role == 'delivery'

@@ -5,6 +5,8 @@ from .viewsets import *
 router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
 router.register(r'loyalty', CustomerLoyaltyViewSet, basename='customer-loyalty')
+router.register(r'deliveries/profiles', DeliveryProfileViewSet)
+router.register(r'deliveries/assignments', DeliveryAssignmentViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

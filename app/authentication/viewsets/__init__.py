@@ -1,3 +1,5 @@
 from app.authentication.viewsets.user_viewset import UserViewSet, IsAdminOrOwner
 from app.authentication.viewsets.token_viewset import CustomLoginView
 from app.authentication.viewsets.customer_loyalty_viewset import CustomerLoyaltyViewSet
+from app.authentication.viewsets.delivery_profile_viewset import DeliveryProfileViewSet
+from app.authentication.viewsets.delivery_assignment_viewset import DeliveryAssignmentViewSet

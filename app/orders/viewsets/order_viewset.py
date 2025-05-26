@@ -7,6 +7,7 @@ from core.pagination import CustomPagination
 from app.orders.models import Order, OrderItem
 from app.orders.serializers import OrderSerializer, OrderCreateSerializer
 from services.discount_service import DiscountService
+from services.delivery_assignment_service import create_delivery_after_payment
 from base import settings
 from drf_spectacular.utils import extend_schema
 
@@ -168,3 +169,89 @@ class OrderViewSet(viewsets.ModelViewSet):
                 description=f'Error calculating order costs: {str(e)}'
             )
             return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @extend_schema(
+        description="Manually assign a delivery person to an order with completed payment",
+        request=None,  # No request body needed
+        responses={
+            200: {"description": "Delivery successfully assigned"},
+            400: {"description": "No completed payment or no available delivery personnel"},
+            500: {"description": "Server error during assignment"}
+        }
+    )
+    @action(detail=True, methods=['post'], url_path='assign-delivery')
+    def assign_delivery(self, request, pk=None):
+        """
+        Assign a delivery person to an order that has a completed payment.
+        Only requires the order_id in the URL, no request body needed.
+        """
+        order = self.get_object()
+        
+        try:
+            if not hasattr(order, 'payment') or order.payment.payment_status != 'completed':
+                return Response({
+                    "success": False,
+                    "message": "Order does not have a completed payment"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            from app.authentication.models import DeliveryProfile
+            DeliveryProfile.objects.all().update(status='available')
+            
+            delivery = create_delivery_after_payment(order)
+            
+            if not delivery:
+                return Response({
+                    "success": False,
+                    "message": "Failed to create delivery for this order"
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+            if hasattr(delivery, 'assignment') and delivery.assignment:
+                LoggerService.objects.create(
+                    user=request.user,
+                    action='DELIVERY_ASSIGNED',
+                    table_name='DeliveryAssignment',
+                    description=f"Manual delivery assignment for order {order.id} to {delivery.assignment.delivery_person.email}"
+                )
+                
+                return Response({
+                    "success": True,
+                    "message": "Delivery person assigned successfully",
+                    "delivery": {
+                        "id": delivery.order_id,
+                        "status": delivery.delivery_status,
+                        "assignment": {
+                            "id": delivery.assignment.id,
+                            "delivery_person_email": delivery.assignment.delivery_person.email,
+                            "status": delivery.assignment.status
+                        }
+                    }
+                }, status=status.HTTP_200_OK)
+            else:
+                LoggerService.objects.create(
+                    user=request.user,
+                    action='DELIVERY_ASSIGNMENT_FAILED',
+                    table_name='Delivery',
+                    description=f"Failed to assign delivery person to order {order.id}"
+                )
+                
+                return Response({
+                    "success": False,
+                    "message": "Could not assign a delivery person, no available delivery personnel",
+                    "delivery": {
+                        "id": delivery.order_id,
+                        "status": delivery.delivery_status
+                    }
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as e:
+            LoggerService.objects.create(
+                user=request.user,
+                action='ERROR',
+                table_name='DeliveryAssignment',
+                description=f"Error during manual delivery assignment for order {order.id}: {str(e)}"
+            )
+            
+            return Response({
+                "success": False,
+                "message": f"An error occurred: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

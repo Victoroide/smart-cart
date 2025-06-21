@@ -17,6 +17,12 @@ class Product(TimestampedModel):
     description = models.TextField(null=True, blank=True)
     active = models.BooleanField(default=True)
     image_url = models.FileField(storage=PublicMediaStorage(custom_path='products/images'), null=True, blank=True)
+
+    model_3d_url = models.FileField(storage=PublicMediaStorage(custom_path='products/3d_models'), null=True, blank=True)
+    ar_url = models.FileField(storage=PublicMediaStorage(custom_path='products/ar_models'), null=True, blank=True)
+
+    model_3d_format = models.CharField(max_length=10, null=True, blank=True, help_text="Format of 3D model (e.g., glb, gltf, obj)")
+    supports_ar = models.BooleanField(default=False, help_text="Whether this product has AR support")
     technical_specifications = models.TextField(null=True, blank=True)
     price_usd = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     price_bs = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -26,6 +32,20 @@ class Product(TimestampedModel):
             rate = getattr(settings, 'USD_TO_BS_RATE', 13)
             self.price_bs = self.price_usd * rate
             
+        if self.ar_url and not self.supports_ar:
+            self.supports_ar = True
+            
+        if self.model_3d_url and not self.model_3d_format:
+            filename = self.model_3d_url.name.lower()
+            if filename.endswith('.glb'):
+                self.model_3d_format = 'glb'
+            elif filename.endswith('.gltf'):
+                self.model_3d_format = 'gltf'
+            elif filename.endswith('.obj'):
+                self.model_3d_format = 'obj'
+            elif filename.endswith('.usdz'):
+                self.model_3d_format = 'usdz'
+                
         super().save(*args, **kwargs)
 
     @property

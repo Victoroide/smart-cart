@@ -13,7 +13,6 @@ from services.pinecone_service import PineconeService
 from services.recommendation_service import RecommendationService
 
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
-from drf_spectacular.utils import extend_schema
 
 @extend_schema(tags=['Products'])
 class ProductViewSet(viewsets.ModelViewSet):
@@ -27,27 +26,28 @@ class ProductViewSet(viewsets.ModelViewSet):
     ]
     pagination_class = CustomPagination
 
-    filterset_fields = ['brand', 'category']
+    filterset_fields = ['brand', 'category', 'supports_ar']
     search_fields = ['name', 'description']
 
     @extend_schema(
         request=ProductSerializer,
         responses={201: ProductSerializer},
-        description="Create a new product with optional image upload. Use multipart/form-data to upload files.",
+        description="Create a new product with optional image and 3D model uploads. Use multipart/form-data to upload files.",
         examples=[
             OpenApiExample(
                 'Product Example',
-                summary='Basic product creation',
+                summary='Basic product creation with 3D model',
                 value={
                     "name": "Smartphone XYZ",
-                    "brand": 1,
-                    "category": 2,
-                    "warranty": 3,
+                    "brand_id": 1,
+                    "category_id": 2,
+                    "warranty_id": 3,
                     "stock": 100,
                     "price_usd": 699.99,
                     "description": "A high-end smartphone with excellent features.",
                     "active": True,
-                    "technical_specifications": "6.5-inch display, 128GB storage, 5G support"
+                    "technical_specifications": "6.5-inch display, 128GB storage, 5G support",
+                    "supports_ar": True
                 },
                 request_only=True,
             )
@@ -57,30 +57,74 @@ class ProductViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
             try:
-                data = request.data.copy()
-                image_file = None
-
-                if 'image_url' in request.FILES:
-                    image_file = request.FILES.get('image_url')
-                    if 'image_url' in data:
-                        del data['image_url']
-
+                data = {}
+                for key in request.data.keys():
+                    if key not in ['image_url', 'model_3d_url', 'ar_url']:
+                        data[key] = request.data[key]
+                
                 serializer = self.get_serializer(data=data)
                 serializer.is_valid(raise_exception=True)
                 instance = serializer.save()
-
-                if image_file:
+                
+                update_fields = []
+                
+                if 'image_url' in request.FILES:
                     try:
-                        instance.image_url = image_file
-                        instance.save(update_fields=['image_url'])
-                    except Exception as img_error:
+                        instance.image_url = request.FILES['image_url']
+                        update_fields.append('image_url')
+                    except Exception as file_error:
                         LoggerService.objects.create(
                             user=request.user if request.user.is_authenticated else None,
                             action='ERROR',
                             table_name='Product',
-                            description=f'Error saving image for product {instance.id}: {str(img_error)}'
+                            description=f'Error saving image for product {instance.id}: {str(file_error)}'
                         )
-
+                
+                if 'model_3d_url' in request.FILES:
+                    try:
+                        instance.model_3d_url = request.FILES['model_3d_url']
+                        update_fields.append('model_3d_url')
+                        
+                        filename = request.FILES['model_3d_url'].name.lower()
+                        if filename.endswith('.glb'):
+                            instance.model_3d_format = 'glb'
+                            update_fields.append('model_3d_format')
+                        elif filename.endswith('.gltf'):
+                            instance.model_3d_format = 'gltf'
+                            update_fields.append('model_3d_format')
+                        elif filename.endswith('.obj'):
+                            instance.model_3d_format = 'obj'
+                            update_fields.append('model_3d_format')
+                        elif filename.endswith('.usdz'):
+                            instance.model_3d_format = 'usdz'
+                            update_fields.append('model_3d_format')
+                    except Exception as file_error:
+                        LoggerService.objects.create(
+                            user=request.user if request.user.is_authenticated else None,
+                            action='ERROR',
+                            table_name='Product',
+                            description=f'Error saving 3D model for product {instance.id}: {str(file_error)}'
+                        )
+                
+                if 'ar_url' in request.FILES:
+                    try:
+                        instance.ar_url = request.FILES['ar_url']
+                        update_fields.append('ar_url')
+                        
+                        if not instance.supports_ar:
+                            instance.supports_ar = True
+                            update_fields.append('supports_ar')
+                    except Exception as file_error:
+                        LoggerService.objects.create(
+                            user=request.user if request.user.is_authenticated else None,
+                            action='ERROR',
+                            table_name='Product',
+                            description=f'Error saving AR model for product {instance.id}: {str(file_error)}'
+                        )
+                
+                if update_fields:
+                    instance.save(update_fields=update_fields)
+                
                 try:
                     pinecone_service = PineconeService()
                     pinecone_service.upsert_product(instance)
@@ -115,14 +159,15 @@ class ProductViewSet(viewsets.ModelViewSet):
     @extend_schema(
         request=ProductSerializer,
         responses={200: ProductSerializer},
-        description="Update a product with optional image upload. Use multipart/form-data to upload files.",
+        description="Update a product with optional image and 3D model uploads. Use multipart/form-data to upload files.",
         examples=[
             OpenApiExample(
                 'Product Update Example',
-                summary='Basic product update',
+                summary='Update product with 3D model',
                 value={
                     "name": "Updated Smartphone XYZ",
-                    "price_usd": 899.99
+                    "price_usd": 899.99,
+                    "supports_ar": True
                 },
                 request_only=True,
             )
@@ -135,30 +180,79 @@ class ProductViewSet(viewsets.ModelViewSet):
                 instance = self.get_object()
                 
                 original_image = instance.image_url
+                original_3d_model = instance.model_3d_url
+                original_ar = instance.ar_url
                 
-                image_file = request.FILES.get('image_url')
-                data = request.data.copy()
+                data = {}
+                for key in request.data.keys():
+                    if key not in ['image_url', 'model_3d_url', 'ar_url']:
+                        data[key] = request.data[key]
                 
-                if 'image_url' in data:
-                    del data['image_url']
-                    
                 serializer = self.get_serializer(instance, data=data, partial=True)
                 serializer.is_valid(raise_exception=True)
                 self.perform_update(serializer)
                 
-                if image_file:
+                update_fields = []
+                
+                if 'image_url' in request.FILES:
                     try:
-                        instance.image_url = image_file
-                        instance.save(update_fields=['image_url'])
-                    except Exception as img_error:
+                        instance.image_url = request.FILES['image_url']
+                        update_fields.append('image_url')
+                    except Exception as e:
                         instance.image_url = original_image
-                        instance.save(update_fields=['image_url'])
                         LoggerService.objects.create(
                             user=request.user if request.user.is_authenticated else None,
                             action='ERROR',
                             table_name='Product',
-                            description=f'Error saving image for product {instance.id}: {str(img_error)}'
+                            description=f'Error saving image for product {instance.id}: {str(e)}'
                         )
+                
+                if 'model_3d_url' in request.FILES:
+                    try:
+                        instance.model_3d_url = request.FILES['model_3d_url']
+                        update_fields.append('model_3d_url')
+                        
+                        filename = request.FILES['model_3d_url'].name.lower()
+                        if filename.endswith('.glb'):
+                            instance.model_3d_format = 'glb'
+                            update_fields.append('model_3d_format')
+                        elif filename.endswith('.gltf'):
+                            instance.model_3d_format = 'gltf'
+                            update_fields.append('model_3d_format')
+                        elif filename.endswith('.obj'):
+                            instance.model_3d_format = 'obj'
+                            update_fields.append('model_3d_format')
+                        elif filename.endswith('.usdz'):
+                            instance.model_3d_format = 'usdz'
+                            update_fields.append('model_3d_format')
+                    except Exception as e:
+                        instance.model_3d_url = original_3d_model
+                        LoggerService.objects.create(
+                            user=request.user if request.user.is_authenticated else None,
+                            action='ERROR',
+                            table_name='Product',
+                            description=f'Error saving 3D model for product {instance.id}: {str(e)}'
+                        )
+                
+                if 'ar_url' in request.FILES:
+                    try:
+                        instance.ar_url = request.FILES['ar_url']
+                        update_fields.append('ar_url')
+                        
+                        if not instance.supports_ar:
+                            instance.supports_ar = True
+                            update_fields.append('supports_ar')
+                    except Exception as e:
+                        instance.ar_url = original_ar
+                        LoggerService.objects.create(
+                            user=request.user if request.user.is_authenticated else None,
+                            action='ERROR',
+                            table_name='Product',
+                            description=f'Error saving AR model for product {instance.id}: {str(e)}'
+                        )
+                
+                if update_fields:
+                    instance.save(update_fields=update_fields)
                 
                 try:
                     pinecone_service = PineconeService()
@@ -188,6 +282,40 @@ class ProductViewSet(viewsets.ModelViewSet):
                     description='Error on partial_update product: ' + str(e)
                 )
                 raise e
+
+    @extend_schema(
+        responses={200: ProductSerializer(many=True)},
+        description="Get all products that have 3D models available",
+        tags=['Products']
+    )
+    @action(detail=False, methods=['get'], url_path='with-3d-models')
+    def with_3d_models(self, request):
+        products = self.queryset.filter(model_3d_url__isnull=False).exclude(model_3d_url='')
+        page = self.paginate_queryset(products)
+        
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(products, many=True)
+        return Response(serializer.data)
+
+    @extend_schema(
+        responses={200: ProductSerializer(many=True)},
+        description="Get all products that support AR visualization",
+        tags=['Products']
+    )
+    @action(detail=False, methods=['get'], url_path='with-ar')
+    def with_ar(self, request):
+        products = self.queryset.filter(supports_ar=True, ar_url__isnull=False).exclude(ar_url='')
+        page = self.paginate_queryset(products)
+        
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(products, many=True)
+        return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
         with transaction.atomic():

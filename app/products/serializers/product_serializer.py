@@ -19,6 +19,8 @@ class ProductSerializer(serializers.ModelSerializer):
     stock = serializers.IntegerField(write_only=True, required=False)
     average_rating = serializers.FloatField(read_only=True)
     total_reviews = serializers.IntegerField(read_only=True)
+    has_3d_model = serializers.SerializerMethodField(read_only=True)
+    has_ar = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Product
@@ -37,6 +39,12 @@ class ProductSerializer(serializers.ModelSerializer):
             'description',
             'active',
             'image_url',
+            'model_3d_url',
+            'model_3d_format',
+            'ar_url',
+            'supports_ar',
+            'has_3d_model',
+            'has_ar',
             'technical_specifications',
             'price_usd',
             'price_bs',
@@ -45,7 +53,17 @@ class ProductSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
-        read_only_fields = ['id', 'uuid', 'created_at', 'updated_at', 'price_bs', 'average_rating', 'total_reviews']
+        read_only_fields = [
+            'id', 'uuid', 'created_at', 'updated_at', 
+            'price_bs', 'average_rating', 'total_reviews', 
+            'has_3d_model', 'has_ar'
+        ]
+    
+    def get_has_3d_model(self, obj):
+        return bool(obj.model_3d_url)
+    
+    def get_has_ar(self, obj):
+        return obj.supports_ar and bool(obj.ar_url)
     
     def get_warranty_name(self, obj):
         return obj.warranty.name if obj.warranty else None

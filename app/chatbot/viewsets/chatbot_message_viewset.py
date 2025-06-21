@@ -14,6 +14,18 @@ class ChatbotMessageViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPagination
 
+    def get_queryset(self):
+        """
+        Filter messages by session ID if provided in query parameters.
+        """
+        queryset = super().get_queryset()
+        session_id = self.request.query_params.get('session', None)
+        
+        if session_id is not None:
+            queryset = queryset.filter(session_id=session_id)
+            
+        return queryset
+
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
             try:

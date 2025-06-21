@@ -25,6 +25,9 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    'access-control-allow-origin',
+    'access-control-allow-credentials',
+    'access-control-expose-headers',
 ]
 
 CORS_ALLOW_METHODS = [
@@ -43,6 +46,14 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5500",
     config("BACKEND_URL", default="http://localhost:8000"),
     config("FRONTEND_URL", default="http://localhost:4200"),
+]
+
+CORS_EXPOSE_HEADERS = [
+    'Content-Type', 
+    'X-CSRFToken', 
+    'Session-Token',
+    'Session-Id',
+    'Bot-Message-Id',
 ]
 
 INSTALLED_APPS = [
@@ -76,6 +87,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.RequestMiddleware',
+    'core.middleware.SSEMiddleware',
 ]
 
 ROOT_URLCONF = 'base.urls'
